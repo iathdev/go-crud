@@ -1,0 +1,14 @@
+{
+  "common.successfully": "Berhasil",
+  "common.error": "Kesalahan",
+  "common.bad_request": "Permintaan tidak valid",
+  "common.unauthorized": "Tidak diizinkan",
+  "common.forbidden": "Dilarang",
+  "common.conflict": "Konflik",
+  "common.not_found": "Tidak ditemukan",
+  "common.internal_server_error": "Kesalahan Server Internal",
+  "common.internal_error": "Kesalahan Internal",
+  "common.invalid_input": "Input tidak valid",
+  "common.too_many_requests": "Terlalu banyak permintaan, silakan coba lagi nanti",
+  "common.deleted_successfully": "Berhasil dihapus"
+}

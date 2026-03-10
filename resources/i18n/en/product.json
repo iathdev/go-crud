@@ -1,0 +1,5 @@
+{
+  "product.not_found": "Product not found",
+  "product.name_required": "Product name is required",
+  "product.price_must_be_greater_than_0": "Price must be greater than 0"
+}

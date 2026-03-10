@@ -1,0 +1,5 @@
+{
+  "product.not_found": "ไม่พบสินค้า",
+  "product.name_required": "จำเป็นต้องระบุชื่อสินค้า",
+  "product.price_must_be_greater_than_0": "ราคาต้องมากกว่า 0"
+}

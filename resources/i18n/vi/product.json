@@ -1,0 +1,5 @@
+{
+  "product.not_found": "Không tìm thấy sản phẩm",
+  "product.name_required": "Tên sản phẩm là bắt buộc",
+  "product.price_must_be_greater_than_0": "Giá phải lớn hơn 0"
+}

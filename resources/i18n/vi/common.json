@@ -1,0 +1,14 @@
+{
+  "common.successfully": "Thành công",
+  "common.error": "Lỗi",
+  "common.bad_request": "Yêu cầu không hợp lệ",
+  "common.unauthorized": "Không được phép",
+  "common.forbidden": "Bị cấm",
+  "common.conflict": "Xung đột",
+  "common.not_found": "Không tìm thấy",
+  "common.internal_server_error": "Lỗi hệ thống",
+  "common.internal_error": "Lỗi hệ thống",
+  "common.invalid_input": "Dữ liệu không hợp lệ",
+  "common.too_many_requests": "Quá nhiều yêu cầu, vui lòng thử lại sau",
+  "common.deleted_successfully": "Xoá thành công"
+}

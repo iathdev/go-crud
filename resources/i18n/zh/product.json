@@ -1,0 +1,5 @@
+{
+  "product.not_found": "未找到商品",
+  "product.name_required": "必须填写商品名称",
+  "product.price_must_be_greater_than_0": "价格必须大于 0"
+}
