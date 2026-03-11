@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"learning-go/internal/infrastructure/di"
+	"learning-go/internal/shared/logger"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -20,24 +23,24 @@ func main() {
 
 	go func() {
 		if err := server.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Server failed: %v", err)
+			logger.Fatal("server failed", zap.Error(err))
 		}
 	}()
 
-	log.Println("Server started on port " + server.Addr())
+	logger.Info("server started", zap.String("addr", server.Addr()))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("shutting down server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Fatal("server forced to shutdown", zap.Error(err))
 	}
 
 	cleanup()
-	log.Println("Server exited gracefully")
+	logger.Info("server exited gracefully")
 }

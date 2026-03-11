@@ -1,58 +1,51 @@
 package di
 
 import (
-	"learning-go/internal/adapter/driven/persistence/postgres"
-	"learning-go/internal/adapter/driving/http"
-	"learning-go/internal/adapter/driving/http/handler"
-	"learning-go/internal/application/usecase/auth"
-	"learning-go/internal/application/usecase/product"
+	"learning-go/internal/auth"
 	"learning-go/internal/infrastructure/config"
-	"learning-go/internal/infrastructure/database"
-	"learning-go/internal/infrastructure/security"
-	"log"
+	"learning-go/internal/server"
+	"learning-go/internal/shared/logger"
+	"learning-go/internal/vocabulary"
+	"strings"
+
+	"go.uber.org/zap"
 )
 
-func NewApp() (*http.Server, func(), error) {
+func NewApp() (*server.Server, func(), error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	db, err := database.NewPostgresDB(cfg)
+	obs, err := initObservability(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pst, err := initPersistence(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	cleanup := func() {
-		sqlDB, err := db.DB()
-		if err == nil {
-			sqlDB.Close()
-		}
+		pst.cleanup()
+		obs.cleanup()
 	}
 
-	// Repositories
-	userRepo := postgres.NewUserRepository(db)
-	productRepo := postgres.NewProductRepository(db)
+	// Modules
+	authModule := auth.NewModule(pst.db, pst.redisClient, cfg)
+	vocabularyModule := vocabulary.NewModule(pst.db)
 
-	// Services
-	tokenService := security.NewJWTService(cfg)
+	// Router & Server
+	router := server.NewRouter(authModule, vocabularyModule, pst.db, cfg)
+	srv := server.NewServer(cfg, router)
 
-	// UseCases
-	authUseCase := auth.NewAuthUseCase(userRepo, tokenService)
-	productCommandUseCase := product.NewProductCommandUseCase(productRepo)
-	productQueryUseCase := product.NewProductQueryUseCase(productRepo)
+	logger.Info("app initialized successfully",
+		zap.String("service", cfg.GetServiceName()),
+		zap.String("log_channels", strings.Join(cfg.GetLogChannels(), ",")),
+		zap.Bool("tracing_enabled", cfg.OTLPEndpoint != ""),
+		zap.Bool("sentry_enabled", cfg.SentryDSN != ""),
+	)
 
-	// Handlers
-	authHandler := handler.NewAuthHandler(authUseCase)
-	productHandler := handler.NewProductHandler(productCommandUseCase, productQueryUseCase)
-	healthHandler := handler.NewHealthHandler(db)
-
-	// Router
-	router := http.NewRouter(authHandler, productHandler, healthHandler, cfg)
-
-	// Server
-	server := http.NewServer(cfg, router)
-
-	log.Println("App initialized successfully")
-	return server, cleanup, nil
+	return srv, cleanup, nil
 }

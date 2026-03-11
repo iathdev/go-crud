@@ -1,6 +1,6 @@
-# Kiến trúc Dự án (Hexagonal Architecture)
+# Kiến trúc Dự án (Modular Monolith + Hexagonal Architecture)
 
-Dự án này được xây dựng dựa trên kiến trúc **Hexagonal Architecture** (hay còn gọi là Ports and Adapters). Mục tiêu chính là tách biệt phần **Business Logic** (Core) khỏi các yếu tố bên ngoài (Frameworks, Database, UI, External APIs).
+Dự án này được xây dựng dựa trên kiến trúc **Modular Monolith** với **Hexagonal Architecture** (Ports and Adapters) cho từng module. Mục tiêu chính là tách biệt phần **Business Logic** (Core) khỏi các yếu tố bên ngoài (Frameworks, Database, UI, External APIs), đồng thời giữ mỗi subdomain độc lập trong cùng một binary.
 
 ## 1. Cấu trúc Thư mục
 
@@ -11,214 +11,192 @@ myapp/
 │       └── main.go                    # Entry point, khởi tạo DI container
 │
 ├── internal/
-│   ├── domain/                        # Enterprise Business Rules (innermost layer)
-│   │   ├── entity/
-│   │   │   ├── user.go                # Domain entities
-│   │   │   └── order.go
-│   │   ├── valueobject/
-│   │   │   ├── email.go               # Value objects
-│   │   │   └── money.go
-│   │   ├── event/
-│   │   │   └── user_created.go        # Domain events
-│   │   └── error/
-│   │       └── domain_error.go        # Domain-specific errors
+│   ├── auth/                          # Auth module
+│   │   ├── domain/                    # Entities (User)
+│   │   ├── application/
+│   │   │   ├── port/
+│   │   │   │   ├── inbound.go         # AuthUseCasePort
+│   │   │   │   └── outbound.go        # UserRepositoryPort, TokenServicePort, PasswordServicePort, RefreshTokenStorePort
+│   │   │   ├── dto/                   # Request/Response DTOs
+│   │   │   └── usecase/               # AuthUseCase
+│   │   ├── adapter/
+│   │   │   ├── handler/               # HTTP handlers (Gin)
+│   │   │   ├── repository/            # Postgres (User), Redis (RefreshToken)
+│   │   │   └── security/              # JWTService, BcryptPasswordService
+│   │   └── module.go                  # Module wiring + RegisterRoutes
 │   │
-│   ├── application/                   # Application Business Rules
-│   │   ├── port/                      # ← Hexagonal: định nghĩa các ports
-│   │   │   ├── input/                 # Driving ports (use case interfaces)
-│   │   │   │   ├── user_usecase.go
-│   │   │   │   └── order_usecase.go
-│   │   │   └── output/                # Driven ports (repository/service interfaces)
-│   │   │       ├── user_repository.go
-│   │   │       ├── order_repository.go
-│   │   │       └── email_service.go
-│   │   ├── usecase/                   # Use case implementations
-│   │   │   ├── user/
-│   │   │   │   ├── create_user.go
-│   │   │   │   ├── get_user.go
-│   │   │   │   └── delete_user.go
-│   │   │   └── order/
-│   │   │       ├── create_order.go
-│   │   │       └── cancel_order.go
-│   │   └── dto/                       # Data Transfer Objects
-│   │       ├── user_dto.go
-│   │       └── order_dto.go
+│   ├── vocabulary/                    # Vocabulary module
+│   │   ├── domain/                    # Entities (Vocabulary, Folder)
+│   │   ├── application/
+│   │   │   ├── port/
+│   │   │   │   ├── inbound.go         # VocabularyCommand/QueryPort, FolderCommand/QueryPort
+│   │   │   │   └── outbound.go        # VocabularyRepositoryPort, FolderRepositoryPort
+│   │   │   ├── dto/
+│   │   │   └── usecase/               # CQRS: vocabulary_command, vocabulary_query, folder_command, folder_query
+│   │   ├── adapter/
+│   │   │   ├── handler/
+│   │   │   └── repository/
+│   │   └── module.go
 │   │
-│   ├── adapter/                       # ← Hexagonal: các adapters
-│   │   ├── driving/                   # Primary/Driving adapters (inbound)
-│   │   │   ├── http/
-│   │   │   │   ├── handler/
-│   │   │   │   │   ├── user_handler.go
-│   │   │   │   │   └── order_handler.go
-│   │   │   │   ├── middleware/
-│   │   │   │   │   ├── auth.go
-│   │   │   │   │   └── logger.go
-│   │   │   │   ├── router.go
-│   │   │   │   └── server.go
-│   │   │   └── grpc/
-│   │   │       ├── handler/
-│   │   │       │   └── user_handler.go
-│   │   │       └── server.go
-│   │   └── driven/                    # Secondary/Driven adapters (outbound)
-│   │       ├── persistence/
-│   │       │   ├── postgres/
-│   │       │   │   ├── user_repository.go   # implements port/output/user_repository
-│   │       │   │   ├── order_repository.go
-│   │       │   │   └── model/               # DB models (khác với domain entity)
-│   │       │   │       ├── user_model.go
-│   │       │   │       └── order_model.go
-│   │       │   └── redis/
-│   │       │       └── cache_repository.go
-│   │       └── external/
-│   │           ├── email/
-│   │           │   └── smtp_service.go      # implements port/output/email_service
-│   │           └── payment/
-│   │               └── stripe_service.go
+│   ├── learning/                      # Learning module
+│   │   ├── domain/
+│   │   │   ├── learning_card.go       # Entity + LearningMode constants
+│   │   │   └── service/
+│   │   │       └── scoring.go         # SM-2 domain service (review intervals, mastery reset)
+│   │   ├── application/
+│   │   │   ├── port/
+│   │   │   │   ├── inbound.go         # LearningCommand/QueryPort, ReviewCommand/QueryPort
+│   │   │   │   └── outbound.go        # LearningCardRepositoryPort
+│   │   │   ├── dto/
+│   │   │   └── usecase/               # CQRS: learning_command, learning_query, review_command, review_query
+│   │   ├── adapter/
+│   │   │   ├── handler/
+│   │   │   └── repository/
+│   │   └── module.go
 │   │
-│   └── infrastructure/                # Frameworks & Drivers (outermost layer)
-│       ├── di/                        # ← Dependency Injection
-│       │   ├── container.go           # Wire/Fx container setup
-│       │   ├── provider/
-│       │   │   ├── repository.go      # Provide repository implementations
-│       │   │   ├── usecase.go         # Provide usecase implementations
-│       │   │   └── handler.go         # Provide handler implementations
-│       │   └── wire_gen.go            # Generated by Wire (nếu dùng google/wire)
-│       ├── config/
-│       │   ├── config.go              # Config struct
-│       │   └── loader.go              # Load từ env/file
-│       ├── database/
-│       │   ├── postgres.go            # DB connection setup
-│       │   └── migration/
-│       │       └── *.sql
-│       └── logger/
-│           └── logger.go
+│   ├── shared/                        # Shared kernel
+│   │   ├── error/                     # AppError (codes: NOT_FOUND, INVALID_INPUT, etc.)
+│   │   ├── logger/                    # Logger interface + Field constructors
+│   │   ├── ctxlog/                    # Context-aware log fields (request_id, trace_id)
+│   │   ├── i18n/                      # Translation engine (5 languages)
+│   │   ├── middleware/                # Auth, CORS, i18n, Logger, RateLimit, Recovery, RequestID, Security
+│   │   ├── response/                  # APIResponse helpers (Success, BadRequest, ValidationBadRequest, etc.)
+│   │   └── dto/                       # PaginationRequest/PaginatedResponse
+│   │
+│   ├── server/                        # HTTP server + router
+│   │   ├── router.go                  # Route registration + health check
+│   │   └── server.go
+│   │
+│   └── infrastructure/                # Cross-cutting infrastructure
+│       ├── di/                        # Container (NewApp), persistence init, observability init
+│       ├── config/                    # Viper config (auth, db, redis, log, circuitbreaker, observability)
+│       ├── database/                  # GORM postgres connection + custom GORM logger
+│       ├── circuitbreaker/            # gobreaker wrapper + registry
+│       ├── logging/                   # Zap adapter (console, daily file, async OTLP)
+│       ├── redis/                     # Redis client init
+│       ├── sentry/                    # Sentry error tracking
+│       └── tracing/                   # OpenTelemetry OTLP tracer
 │
-├── pkg/                               # Shared/reusable packages
-│   ├── errors/
-│   │   └── errors.go
-│   ├── pagination/
-│   │   └── pagination.go
-│   └── validator/
-│       └── validator.go
-│
-├── api/
-│   ├── openapi/
-│   │   └── swagger.yaml
-│   └── proto/
-│       └── user.proto
-│
-├── config/
-│   ├── app.yaml
-│   └── app.local.yaml
-│
-├── deployments/
-│   ├── docker/
-│   │   └── Dockerfile
-│   └── k8s/
-│       └── deployment.yaml
+├── resources/
+│   └── i18n/                          # Translation files (en, vi, th, zh, id)
 │
 ├── go.mod
 ├── go.sum
 ├── Makefile
-└── README.md
+└── CLAUDE.md
 ```
 
 ```
 HTTP Request
     ↓
-[Driving Adapter] http/handler
-    ↓  calls interface
-[Input Port] application/port/input
-    ↓  implemented by
-[Use Case] application/usecase
-    ↓  calls interface
-[Output Port] application/port/output
-    ↓  implemented by
-[Driven Adapter] adapter/driven/persistence
+[Server] router.go → module.RegisterRoutes()
     ↓
-Database
+[Middleware] RequestID → Language → Auth → RateLimit → Logger → Recovery
+    ↓
+[Adapter] handler/
+    ↓  calls interface
+[Application] port/inbound.go (input port)
+    ↓  implemented by
+[Application] usecase/
+    ↓  calls interface
+[Application] port/outbound.go (output port)
+    ↓  implemented by
+[Adapter] repository/ | security/
+    ↓
+Database / Redis / External Services
 ```
 
 ## 2. Các Lớp (Layers)
 
-### Domain Layer (`internal/domain`)
-Đây là lớp trong cùng, chứa các quy tắc nghiệp vụ cốt lõi của doanh nghiệp.
-- **Entities**: Các đối tượng có định danh (Identity), ví dụ: `User`, `Product`.
-- **Value Objects**: Các đối tượng không có định danh, được xác định bởi thuộc tính của chúng (ví dụ: `Email`, `Money`).
-- **Domain Events**: Các sự kiện xảy ra trong domain.
-- **Domain Errors**: Các lỗi đặc thù của nghiệp vụ.
-- **Đặc điểm**: Không phụ thuộc vào bất kỳ lớp nào khác bên ngoài.
+### Domain Layer (`<module>/domain/`)
+Đây là lớp trong cùng, chứa các quy tắc nghiệp vụ cốt lõi.
+- **Entities**: Các đối tượng có định danh (Identity): `User`, `Vocabulary`, `Folder`, `LearningCard`.
+- **Domain Constants**: `LearningMode`, `MemoryState`, mode weights.
+- **Domain Services**: Logic nghiệp vụ không thuộc entity cụ thể (ví dụ: `learning/domain/service/scoring.go` — SM-2 algorithm).
+- **Entity Errors**: Lỗi đặc thù của entity (ví dụ: `ErrHanziRequired`, `ErrFolderNameRequired`).
+- **UUID v7**: Tất cả entity IDs dùng `uuid.Must(uuid.NewV7())` — time-ordered, tốt cho DB indexing.
+- **Đặc điểm**: Không phụ thuộc vào bất kỳ lớp nào khác bên ngoài. Không import framework, ORM, hay crypto libraries.
 
-### Application Layer (`internal/application`)
+### Application Layer (`<module>/application/`)
 Lớp này điều phối các hoạt động của ứng dụng.
-- **Ports (`port/`)**: Các Interfaces định nghĩa cách giao tiếp với bên ngoài (Input Ports) và cách bên ngoài giao tiếp với Core (Output Ports).
-- **Use Cases (`usecase/`)**: Triển khai các Input Ports, chứa logic ứng dụng cụ thể (ví dụ: `RegisterUser`, `CreateProduct`).
-- **DTOs (`dto/`)**: Data Transfer Objects dùng để chuyển dữ liệu giữa các lớp.
+- **Inbound Ports (`port/inbound.go`)**: Interfaces cho handlers gọi usecases. CQRS split: Command ports (write) và Query ports (read).
+- **Outbound Ports (`port/outbound.go`)**: Interfaces cho usecases gọi repositories và services (PasswordServicePort, TokenServicePort, etc.).
+- **Use Cases (`usecase/`)**: Triển khai các Inbound Ports. Vocabulary và Learning modules dùng CQRS (tách command/query files riêng).
+- **DTOs (`dto/`)**: Data Transfer Objects với Gin binding tags cho validation (`required`, `email`, `min`, `max`).
 - **Đặc điểm**: Chỉ phụ thuộc vào Domain Layer.
 
-### Adapter Layer (`internal/adapter`)
+### Adapter Layer (`<module>/adapter/`)
 Chứa các implementations cụ thể để kết nối Core với thế giới bên ngoài.
-- **Driving Adapters (Primary)**: Nhận request từ bên ngoài vào ứng dụng (ví dụ: HTTP Handlers, gRPC Handlers).
-- **Driven Adapters (Secondary)**: Ứng dụng gọi ra bên ngoài (ví dụ: Postgres Repository, Redis Cache, Email Service).
+- **Handler (Driving)**: Nhận request từ bên ngoài. Bind JSON/Query → validate → gọi usecase qua inbound port. Validation errors trả field-level details qua `ValidationBadRequest()`.
+- **Repository (Driven)**: GORM repositories implement outbound ports. Entity ↔ Model tách biệt với `toEntity()`/`fromEntity()`. Timestamps sync back sau Create/Save.
+- **Security (Driven)**: JWT token service, bcrypt password service — implement outbound ports.
 - **Đặc điểm**: Phụ thuộc vào Application Layer (implement các Ports).
 
-### Infrastructure Layer (`internal/infrastructure`)
+### Infrastructure Layer (`internal/infrastructure/`)
 Cung cấp các công cụ và cấu hình để chạy ứng dụng.
-- **Config**: Load biến môi trường.
-- **Database**: Khởi tạo kết nối DB.
-- **DI**: Dependency Injection container (wire các components lại với nhau).
+- **Config**: Load biến môi trường qua Viper từ `.env`.
+- **Database**: GORM postgres connection + custom GORM logger (slow query detection >200ms).
+- **DI**: `container.go` → `initPersistence()` → module factories. Manual constructor injection.
+- **Observability**: Zap structured logging + OTEL tracing + Sentry error tracking.
+- **Resilience**: Circuit breaker (gobreaker) registry cho persistence layer.
+
+### Shared Kernel (`internal/shared/`)
+Code dùng chung giữa các modules.
+- **AppError**: Error codes layered: entity errors → `ErrInvalidInput`/`ErrNotFound` (usecase) → HTTP status + i18n key (handler).
+- **Response**: `Success()`, `SuccessWithMetadata()` (pagination), `ValidationBadRequest()` (field-level validation errors).
+- **Middleware**: Auth (JWT), CORS, i18n (language detection), Request Logger, Rate Limiting, Recovery (panic → Sentry), RequestID (UUID v7), Security headers.
 
 ---
 
 ## 3. Vòng đời của một API Request (Request Lifecycle)
 
-Dưới đây là mô tả chi tiết luồng đi của một Request từ khi client gọi API đến khi nhận được Response.
-
-**Ví dụ: Tạo sản phẩm mới (Create Product)**
+**Ví dụ: Tạo từ vựng mới (Create Vocabulary)**
 
 1.  **Client Request**:
-    - Client gửi HTTP POST request tới `/api/products` với JSON body (tên, giá, mô tả).
+    - Client gửi HTTP POST request tới `/api/vocabularies` với JSON body (hanzi, pinyin, meaning).
     - Request đi kèm Header `Authorization: Bearer <token>`.
 
 2.  **Infrastructure (Server)**:
     - `http.Server` nhận request.
-    - Request đi qua **Router** (`gin.Engine`).
+    - Request đi qua **Router** (`gin.Engine`) và middleware chain.
 
-3.  **Middleware (Auth)**:
-    - `AuthMiddleware` chặn request lại để kiểm tra Token.
-    - Nếu Token hợp lệ -> Cho phép đi tiếp.
-    - Nếu Token không hợp lệ -> Trả về 401 Unauthorized ngay lập tức.
+3.  **Middleware Chain**:
+    - `RequestIDMiddleware` — gán UUID v7 request ID, propagate qua context.
+    - `LanguageMiddleware` — detect ngôn ngữ từ query/header.
+    - `AuthMiddleware` — validate JWT token, set `user_id` vào context.
+    - `RateLimitMiddleware` — kiểm tra rate limit.
+    - `RequestLoggerMiddleware` — log request/response (skip sensitive paths).
+    - `RecoveryMiddleware` — catch panic, report Sentry.
 
-4.  **Adapter Layer (Driving - HTTP Handler)**:
-    - **Handler** (`ProductHandler.CreateProduct`) nhận request.
-    - **Binding/Validation**: Handler bind JSON body vào struct DTO (`CreateProductRequest`) và validate dữ liệu (ví dụ: `binding:"required"`).
-    - Nếu dữ liệu sai -> Trả về 400 Bad Request.
-    - Nếu dữ liệu đúng -> Gọi xuống Application Layer thông qua Input Port (interface) theo CQRS:
-      - Command: `ProductCommandPort` (ví dụ `CreateProduct`)
-      - Query: `ProductQueryPort` (ví dụ `GetProduct`, `ListProducts`)
+4.  **Adapter Layer (Handler)**:
+    - **Handler** (`VocabularyHandler.CreateVocabulary`) nhận request.
+    - **Binding/Validation**: `ShouldBindJSON(&req)` validate DTO.
+    - Nếu dữ liệu sai → `ValidationBadRequest(c, err)` trả field-level details (`{"hanzi": "required"}`).
+    - Nếu dữ liệu đúng → Gọi xuống Application Layer thông qua Inbound Port.
 
 5.  **Application Layer (Use Case)**:
-    - **Use Case** (`ProductCommand.CreateProduct`) nhận DTO.
+    - **Use Case** (`VocabularyCommand.CreateVocabulary`) nhận DTO.
     - **Business Logic**:
-        - Chuyển đổi DTO sang Domain Entity (`Product`).
-        - Thực hiện các logic nghiệp vụ (ví dụ: kiểm tra giá > 0, tên không trùng...).
-    - Gọi xuống Persistence Layer thông qua Output Port (interface) `ProductRepositoryPort`.
+        - Chuyển đổi DTO sang Domain Entity (`domain.NewVocabulary(...)` — validate, generate UUID v7).
+        - Entity validate trả entity errors → usecase map sang `AppError`.
+    - Gọi xuống Persistence Layer thông qua Outbound Port `VocabularyRepositoryPort`.
 
-6.  **Adapter Layer (Driven - Repository)**:
-    - **Repository** (`PostgresProductRepository`) nhận Entity.
-    - **Mapping**: Chuyển đổi Domain Entity sang Database Model (`ProductModel`).
-    - **Database Execution**: Thực hiện câu lệnh SQL (INSERT) xuống PostgreSQL.
-    - Trả về kết quả (thành công hoặc lỗi) cho Use Case.
+6.  **Adapter Layer (Repository)**:
+    - **Repository** (`VocabularyRepository`) nhận Entity.
+    - **Mapping**: `fromVocabEntity()` chuyển Domain Entity sang DB Model.
+    - **Database Execution**: GORM INSERT vào PostgreSQL (qua circuit breaker).
+    - **Timestamp sync**: GORM-managed CreatedAt/UpdatedAt sync back vào entity pointer.
+    - Trả về kết quả cho Use Case.
 
 7.  **Application Layer (Use Case) - Trả về**:
     - Nhận kết quả từ Repository.
-    - Nếu thành công -> Chuyển đổi Domain Entity sang Response DTO (`ProductResponse`).
+    - Nếu thành công → Chuyển đổi Entity sang Response DTO.
     - Trả DTO về cho Handler.
 
 8.  **Adapter Layer (Handler) - Response**:
     - Handler nhận DTO từ Use Case.
-    - Serialize DTO thành JSON.
-    - Gửi HTTP Response (201 Created) kèm JSON body về cho Client.
+    - `response.Success(c, 201, res)` — serialize thành JSON, translate message qua i18n.
+    - Gửi HTTP Response về Client.
 
 ### Sơ đồ luồng dữ liệu
 
@@ -229,17 +207,17 @@ Client (HTTP)
 [Infrastructure] HTTP Server / Router
    │
    ▼
-[Adapter] Middleware (Auth Check)
+[Middleware] RequestID → Language → Auth → RateLimit → Logger → Recovery
    │
    ▼
-[Adapter] Handler (Parse JSON, Validate)
+[Adapter] Handler (ShouldBindJSON → ValidationBadRequest if fail)
    │         (DTO)
    ▼
-[Application] Use Case (Business Logic) ────┐
-   │         (Entity)                       │
-   ▼                                        ▼
-[Adapter] Repository (DB Access)      [Application] Output Port (Interface)
-   │         (DB Model)                     ▲
-   ▼                                        │
-[Infrastructure] Database (PostgreSQL) ─────┘
+[Application] Use Case (Business Logic, Error mapping)
+   │         (Entity)
+   ▼
+[Adapter] Repository (Entity ↔ Model mapping, Circuit Breaker)
+   │         (DB Model)
+   ▼
+[Infrastructure] Database (PostgreSQL) / Redis
 ```

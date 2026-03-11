@@ -5,7 +5,6 @@ logs/*
 config.yml
 .DS_Store
 .claude
-CLAUDE.md
 skills-lock.json
 .agent/
 .agents/

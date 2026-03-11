@@ -10,5 +10,6 @@
   "common.internal_error": "Internal Error",
   "common.invalid_input": "Invalid input",
   "common.too_many_requests": "Too many requests, please try again later",
-  "common.deleted_successfully": "Deleted successfully"
+  "common.deleted_successfully": "Deleted successfully",
+  "common.service_unavailable": "Service temporarily unavailable, please try again later"
 }

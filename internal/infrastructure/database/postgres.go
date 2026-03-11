@@ -22,7 +22,12 @@ func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
 		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, sslmode, timezone)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{
+		Logger: NewGormLogger(),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -31,13 +36,14 @@ func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	configurePool(sqlDB)
+	configurePool(sqlDB, cfg)
 
 	return db, nil
 }
 
-func configurePool(sqlDB *sql.DB) {
-	sqlDB.SetMaxOpenConns(25)
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetConnMaxLifetime(5 * time.Minute)
+func configurePool(sqlDB *sql.DB, cfg *config.Config) {
+	sqlDB.SetMaxOpenConns(cfg.GetDBMaxOpenConns())
+	sqlDB.SetMaxIdleConns(cfg.GetDBMaxIdleConns())
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.GetDBConnMaxLifetime()) * time.Minute)
+	sqlDB.SetConnMaxIdleTime(time.Duration(cfg.GetDBConnMaxIdleTime()) * time.Minute)
 }
