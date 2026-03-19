@@ -1,31 +1,13 @@
 package dto
 
-type LoginRequest struct {
-	Token string `json:"token" binding:"required"`
-}
+import "time"
 
-type LoginResponse struct {
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
-	IsFirstLogin bool         `json:"is_first_login"`
-	Profile      *UserResponse `json:"profile"`
-}
-
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
-type LogoutRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
-type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type UserResponse struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
+type MeResponse struct {
+	ID           string    `json:"id"`
+	PrepUserID   int64     `json:"prep_user_id"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	IsFirstLogin bool      `json:"is_first_login"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

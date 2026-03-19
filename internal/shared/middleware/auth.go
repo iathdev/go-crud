@@ -1,68 +1,106 @@
 package middleware
 
 import (
-	"fmt"
-	"learning-go/internal/infrastructure/config"
+	"errors"
+	"learning-go/internal/auth/application/port"
+	"learning-go/internal/auth/domain"
 	"learning-go/internal/shared/common"
 	"learning-go/internal/shared/ctxlog"
+	sharederror "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 )
 
-func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
+func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepositoryPort) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			logger.WithContext(c.Request.Context()).Debug("auth rejected", zap.String("reason", "missing authorization header"), zap.String("client_ip", common.ResolveClientIP(c.Request)))
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			logger.WithContext(c.Request.Context()).Debug("auth rejected",
+				zap.String("reason", "missing or invalid authorization header"),
+				zap.String("client_ip", common.ResolveClientIP(c.Request)),
+			)
 			response.Unauthorized(c, "auth.unauthorized")
 			c.Abort()
 			return
 		}
 
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			logger.WithContext(c.Request.Context()).Debug("auth rejected", zap.String("reason", "invalid bearer prefix"), zap.String("client_ip", common.ResolveClientIP(c.Request)))
-			response.Unauthorized(c, "auth.unauthorized")
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+
+		prepUser, err := prepService.ValidateToken(c.Request.Context(), token)
+		if err != nil {
+			handleMiddlewareError(c, err)
+			return
+		}
+
+		user, isFirstLogin, err := upsertUser(c, userRepo, prepUser)
+		if err != nil {
+			logger.WithContext(c.Request.Context()).Error("auth middleware upsert failed", zap.Error(err))
+			response.InternalServerError(c, "")
 			c.Abort()
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return []byte(cfg.JWTSecret), nil
-		})
+		c.Set("user_id", user.ID.String())
+		c.Set("email", user.Email)
+		c.Set("prep_user_id", user.PrepUserID)
+		c.Set("is_first_login", isFirstLogin)
 
-		if err != nil || !token.Valid {
-			logger.WithContext(c.Request.Context()).Debug("auth rejected", zap.String("reason", "invalid token"), zap.String("client_ip", common.ResolveClientIP(c.Request)), zap.Error(err))
-			response.Unauthorized(c, "auth.unauthorized")
-			c.Abort()
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			logger.WithContext(c.Request.Context()).Debug("auth rejected", zap.String("reason", "invalid claims"), zap.String("client_ip", common.ResolveClientIP(c.Request)))
-			response.Unauthorized(c, "auth.unauthorized")
-			c.Abort()
-			return
-		}
-
-		if userID, ok := claims["user_id"].(string); ok {
-			c.Set("user_id", userID)
-			ctx := ctxlog.WithFields(c.Request.Context(), zap.String("user_id", userID))
-			c.Request = c.Request.WithContext(ctx)
-		}
-		if email, ok := claims["email"].(string); ok {
-			c.Set("email", email)
-		}
+		ctx := ctxlog.WithFields(c.Request.Context(), zap.String("user_id", user.ID.String()))
+		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
 	}
+}
+
+func upsertUser(c *gin.Context, userRepo port.UserRepositoryPort, prepUser *domain.PrepUser) (*domain.User, bool, error) {
+	ctx := c.Request.Context()
+
+	existing, err := userRepo.FindByPrepUserID(ctx, prepUser.PrepUserID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if existing == nil {
+		user := domain.NewUser(prepUser.PrepUserID, prepUser.Email, prepUser.Name)
+		if err := userRepo.Upsert(ctx, user); err != nil {
+			return nil, false, err
+		}
+		return user, true, nil
+	}
+
+	if existing.Email != prepUser.Email || existing.Name != prepUser.Name {
+		existing.Email = prepUser.Email
+		existing.Name = prepUser.Name
+		if err := userRepo.Update(ctx, existing); err != nil {
+			return nil, false, err
+		}
+	}
+
+	return existing, false, nil
+}
+
+func handleMiddlewareError(c *gin.Context, err error) {
+	var appErr *sharederror.AppError
+	if errors.As(err, &appErr) {
+		switch appErr.Code() {
+		case sharederror.CodeSSOTokenInvalid:
+			logger.WithContext(c.Request.Context()).Debug("auth rejected",
+				zap.String("reason", "invalid prep token"),
+				zap.String("client_ip", common.ResolveClientIP(c.Request)),
+			)
+			response.Unauthorized(c, "auth.unauthorized")
+		case sharederror.CodeSSOServiceError, sharederror.CodeServiceUnavailable:
+			logger.WithContext(c.Request.Context()).Error("prep service unavailable", zap.Error(err))
+			response.ServiceUnavailable(c, "auth.service_unavailable")
+		default:
+			response.InternalServerError(c, "")
+		}
+	} else {
+		response.InternalServerError(c, "")
+	}
+	c.Abort()
 }

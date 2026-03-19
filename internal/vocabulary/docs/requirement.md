@@ -28,13 +28,13 @@ User tap "Scan" → Camera opens → Chụp ảnh / import từ gallery
 |---|---|
 | OCR nhận sai chữ Hán | Preview + "Confirm or Edit". Confidence < 80% → "Did you mean X?" + top-3 candidates |
 | Mix tiếng Trung + Việt + Anh | Lọc chỉ lấy Hán tự. Hiển thị "Detected X Chinese characters" |
-| Chữ quá xấu / ký tự đặc biệt | UI review với thông tin tối thiểu: word, pinyin (auto-suggest), definition |
+| Chữ quá xấu / ký tự đặc biệt | UI review với thông tin tối thiểu: word, pinyin (auto-suggest), definition, IPA, example (opt). Hệ thống so sánh từ điển → đưa IPA + audio + ảnh nếu có |
 | Scan trùng từ đã có | Check duplicate → thông báo → View / Ignore / Merge |
 | Note học sinh ghi sai | Tôn trọng nội dung user viết. Chỉ gợi ý nếu phát hiện sai sót |
 
 ### 1.3 Technical
 
-- OCR Engine: Google Cloud Vision API (primary) / Baidu OCR API (fallback handwritten)
+- OCR Engine: Google Cloud Vision API (primary) / Baidu OCR API (fallback handwritten) / Tesseract (open-source) fine-tuned trên dataset viết tay tiếng Trung
 - Target accuracy: ≥ 90% printed, ≥ 80% handwritten
 - Fallback: confidence < 70% → show top-3 candidates
 
@@ -44,15 +44,17 @@ User tap "Scan" → Camera opens → Chụp ảnh / import từ gallery
 
 ### 2.1 Cấu trúc HSK 3.0 (syllabus Nov 2025)
 
-| HSK Level | Stage | Từ vựng (tích lũy) | Hán tự nhận diện | Hán tự viết | Access |
-|---|---|---|---|---|---|
-| HSK 1 | Elementary (A1) | 300 | 246 | — | Free |
-| HSK 2 | Elementary (A1) | 500 | 424 | — | Free |
-| HSK 3 | Elementary (A2) | 1,000 | 636 | — | Free |
-| HSK 4 | Intermediate (B1) | 2,000 | 1,096 | — | Pro |
-| HSK 5 | Intermediate (B1) | 3,600 | 1,527 | 150 | Pro |
-| HSK 6 | Intermediate (B2) | 5,400 | 1,940 | 300 | Pro |
-| HSK 7-9 | Advanced (C1-C2) | 7,000-11,000 | 2,421-3,088 | 400-500 | Pro (Phase 2) |
+| HSK Level | Stage | Từ vựng (tích lũy) | Hán tự nhận diện | Hán tự viết | Syllables | Access |
+|---|---|---|---|---|---|---|
+| HSK 1 | Elementary (A1) | 300 | 246 | — | 269 | Free |
+| HSK 2 | Elementary (A1) | 500 | 424 | — | 468 | Free |
+| HSK 3 | Elementary (A2) | 1,000 | 636 | — | 608 | Free |
+| HSK 4 | Intermediate (B1) | 2,000 | 1,096 | — | 724 | Pro |
+| HSK 5 | Intermediate (B1) | 3,600 | 1,527 | 150 | 822 | Pro |
+| HSK 6 | Intermediate (B2) | 5,400 | 1,940 | 300 | 908 | Pro |
+| HSK 7 | Advanced (C1) | 7,000 | 2,421 | 400 | 1,020 | Pro (Phase 2) |
+| HSK 8 | Advanced (C1) | 9,000 | 2,753 | 450 | 1,070 | Pro (Phase 2) |
+| HSK 9 | Advanced (C2) | 11,000 | 3,088 | 500 | 1,110 | Pro (Phase 2) |
 
 ### 2.2 Data Model per Word
 
@@ -173,7 +175,13 @@ Mỗi learning card có section "Grammar":
 | HSK Wordlists | HSK 1-3 | HSK 1-9 |
 | Scan/day | Max 3 ảnh | Unlimited |
 | Cards/day | Max 20 | Unlimited |
-| Grammar | Tips giới hạn | Full context |
+| Flashcard type | Text only | Text + Images (Phase 2: + Video) |
+| Stroke & Recall | Guided xem only + Recall 5 từ/ngày | Full Guided + unlimited Recall + Speed Writing (Phase 2) |
+| Pronunciation | Trial 3 từ/ngày | Unlimited + Weakness Report |
+| Learning Modes | Discover + Recall + Review | All 7 modes (incl. Chat, Mastery) |
+| Grammar | Tips giới hạn | Full context + Phase 2 module |
+| AI Chat | Không | Unlimited |
+| Ads | Non-intrusive | Ad-free |
 
 ---
 

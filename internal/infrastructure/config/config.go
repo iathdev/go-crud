@@ -1,10 +1,6 @@
 package config
 
-import (
-	"fmt"
-
-	"github.com/spf13/viper"
-)
+import "github.com/spf13/viper"
 
 type Config struct {
 	AppPort string `mapstructure:"APP_PORT"`
@@ -29,10 +25,6 @@ func LoadConfig() (*Config, error) {
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err
-	}
-
-	if config.JWTSecret == "" {
-		return nil, fmt.Errorf("JWT_SECRET is required and must not be empty")
 	}
 
 	return &config, nil

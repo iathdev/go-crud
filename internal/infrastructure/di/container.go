@@ -33,7 +33,7 @@ func NewApp() (*server.Server, func(), error) {
 	}
 
 	// Modules
-	authModule := auth.NewModule(pst.db, pst.redisClient, cfg)
+	authModule := auth.NewModule(pst.db, cfg)
 	vocabularyModule := vocabulary.NewModule(pst.db)
 
 	// Router & Server

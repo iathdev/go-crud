@@ -44,7 +44,7 @@ func NewRouter(
 
 	// Protected routes
 	api := r.Group("/api")
-	api.Use(middleware.AuthMiddleware(cfg))
+	api.Use(middleware.AuthMiddleware(authModule.PrepUserService, authModule.UserRepo))
 
 	// Register modules
 	authModule.RegisterRoutes(public, api)
