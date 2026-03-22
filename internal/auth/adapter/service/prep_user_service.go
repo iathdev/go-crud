@@ -51,7 +51,7 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 
 		resp, err := service.client.Do(req)
 		if err != nil {
-			logger.WithContext(ctx).Error("prep user service request failed", zap.Error(err))
+			logger.WithContext(ctx).Error("[AUTH] prep user service request failed", zap.Error(err))
 			return nil, sharederror.ErrSSOServiceError
 		}
 		defer resp.Body.Close()
@@ -60,7 +60,7 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 			return nil, sharederror.ErrSSOTokenInvalid
 		}
 		if resp.StatusCode != http.StatusOK {
-			logger.WithContext(ctx).Error("prep user service unexpected status",
+			logger.WithContext(ctx).Error("[AUTH] prep user service unexpected status",
 				zap.String("status", resp.Status),
 			)
 			return nil, sharederror.ErrSSOServiceError
@@ -68,7 +68,7 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 
 		var body prepMeResponse
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-			logger.WithContext(ctx).Error("prep user service decode error", zap.Error(err))
+			logger.WithContext(ctx).Error("[AUTH] prep user service decode error", zap.Error(err))
 			return nil, sharederror.ErrSSOServiceError
 		}
 

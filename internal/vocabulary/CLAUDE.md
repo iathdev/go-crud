@@ -37,7 +37,7 @@ POST/GET/DELETE      /folders/:id/vocabularies[/:vocab_id]
 
 - **Search**: Case-insensitive LIKE with `%query%` wildcards across 4 columns. Ordered by HSK level ASC, pinyin ASC.
 - **Pagination**: Normalized in `normalizePagination()` — defaults page=1, pageSize=10, max 100. Dual queries (COUNT + SELECT) for paginated endpoints.
-- **Shared helpers**: `getOwnedFolder()`, `classifyRepoError()`, `normalizePagination()`, `toFolderResponse()` are package-level functions shared across Command/Query use cases.
+- **Shared helpers**: `getOwnedFolder()`, `normalizePagination()`, `toFolderResponse()` are package-level functions shared across Command/Query use cases.
 - **Folder-vocabulary junction**: `folder_vocabularies` table with composite PK `(folder_id, vocabulary_id)` + `added_at` timestamp. No domain entity for this — handled purely at repository level.
 - **Domain error mapping**: `mapVocabEntityError()` converts domain errors (ErrHanziRequired, etc.) to `AppError` with `CodeInvalidInput`.
 

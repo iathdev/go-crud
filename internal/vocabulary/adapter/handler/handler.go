@@ -305,15 +305,16 @@ func (handler *VocabularyHandler) ListFolderVocabularies(c *gin.Context) {
 func handleError(c *gin.Context, err error) {
 	var domErr *sharederror.AppError
 	if errors.As(err, &domErr) {
+		msg := domErr.Message()
 		switch domErr.Code() {
 		case sharederror.CodeInvalidInput:
-			response.BadRequest(c, "common.bad_request")
+			response.BadRequest(c, msg)
 		case sharederror.CodeNotFound:
-			response.NotFound(c, "common.not_found")
+			response.NotFound(c, msg)
 		case sharederror.CodeServiceUnavailable:
-			response.ServiceUnavailable(c, "")
+			response.ServiceUnavailable(c, msg)
 		default:
-			response.InternalServerError(c, "")
+			response.InternalServerError(c, msg)
 		}
 		return
 	}

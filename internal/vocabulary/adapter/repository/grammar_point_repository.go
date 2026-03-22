@@ -52,7 +52,7 @@ func (repo *GrammarPointRepository) FindByCode(ctx context.Context, code string)
 	var m model.GrammarPointModel
 	if err := repo.db.WithContext(ctx).First(&m, "code = ?", code).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.ErrNotFound
+			return nil, sharederror.NewNotFound("grammar_point.not_found")
 		}
 		return nil, err
 	}

@@ -3,12 +3,9 @@ package usecase
 import (
 	"context"
 	sharederror "learning-go/internal/shared/error"
-	"learning-go/internal/shared/logger"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
-
-	"go.uber.org/zap"
 )
 
 type OCRCommand struct {
@@ -30,8 +27,7 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("error finding existing vocabularies", zap.Error(err))
-		return nil, sharederror.ErrInternal
+		return nil, sharederror.NewInternal(ctx, "ocr.find_existing_failed", err)
 	}
 
 	existingMap := make(map[string]*domain.Vocabulary, len(existing))
