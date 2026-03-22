@@ -11,5 +11,6 @@
   "common.invalid_input": "Dữ liệu không hợp lệ",
   "common.too_many_requests": "Quá nhiều yêu cầu, vui lòng thử lại sau",
   "common.deleted_successfully": "Xoá thành công",
-  "common.service_unavailable": "Dịch vụ tạm thời không khả dụng, vui lòng thử lại sau"
+  "common.service_unavailable": "Dịch vụ tạm thời không khả dụng, vui lòng thử lại sau",
+  "common.route_not_found": "Đường dẫn yêu cầu không tồn tại"
 }

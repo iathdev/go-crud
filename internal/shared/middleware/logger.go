@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const maxBodyLogSize = 10 * 1024 // 10KB
+
 var defaultSkipPaths = map[string]bool{
 	"/health": true,
 }
@@ -34,7 +36,7 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 		// Capture request body for debug logging (skip sensitive paths)
 		var requestBody string
 		if !sensitiveBodyPaths[c.Request.URL.Path] {
-			if c.Request.Body != nil && c.Request.ContentLength > 0 && c.Request.ContentLength <= 10*1024 {
+			if c.Request.Body != nil && c.Request.ContentLength > 0 && c.Request.ContentLength <= maxBodyLogSize {
 				bodyBytes, err := io.ReadAll(c.Request.Body)
 				if err == nil {
 					requestBody = string(bodyBytes)
@@ -60,16 +62,14 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 
 		switch {
 		case status >= 500:
-			log.Error("http_request", fields...)
-		case status >= 400:
-			log.Warn("http_request", fields...)
+			log.Error("[SERVER] http_request", fields...)
 		default:
-			log.Info("http_request", fields...)
+			log.Info("[SERVER] http_request", fields...)
 		}
 
 		// Request body logged separately at Debug level only
 		if requestBody != "" {
-			log.Debug("http_request_body",
+			log.Debug("[SERVER] http_request_body",
 				zap.String("path", c.Request.URL.Path),
 				zap.String("body", requestBody),
 			)

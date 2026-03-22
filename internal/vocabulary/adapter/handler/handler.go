@@ -1,9 +1,7 @@
 package handler
 
 import (
-	"errors"
 	"learning-go/internal/shared/dto"
-	sharederror "learning-go/internal/shared/error"
 	"learning-go/internal/shared/response"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
@@ -48,13 +46,13 @@ func NewVocabularyHandler(
 func (handler *VocabularyHandler) CreateVocabulary(c *gin.Context) {
 	var req vdto.CreateVocabularyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.vocabCmd.CreateVocabulary(c.Request.Context(), req)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusCreated, res)
@@ -63,7 +61,7 @@ func (handler *VocabularyHandler) CreateVocabulary(c *gin.Context) {
 func (handler *VocabularyHandler) GetVocabulary(c *gin.Context) {
 	res, err := handler.vocabQry.GetVocabulary(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -72,7 +70,7 @@ func (handler *VocabularyHandler) GetVocabulary(c *gin.Context) {
 func (handler *VocabularyHandler) GetVocabularyDetail(c *gin.Context) {
 	res, err := handler.vocabQry.GetVocabularyDetail(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -87,13 +85,13 @@ func (handler *VocabularyHandler) ListByHSKLevel(c *gin.Context) {
 
 	var pagination dto.PaginationRequest
 	if err := c.ShouldBindQuery(&pagination); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.vocabQry.ListByHSKLevel(c.Request.Context(), level, pagination)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.SuccessWithMetadata(c, http.StatusOK, res.Items, res.Metadata)
@@ -108,13 +106,13 @@ func (handler *VocabularyHandler) ListByTopic(c *gin.Context) {
 
 	var pagination dto.PaginationRequest
 	if err := c.ShouldBindQuery(&pagination); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.vocabQry.ListByTopic(c.Request.Context(), slug, pagination)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.SuccessWithMetadata(c, http.StatusOK, res.Items, res.Metadata)
@@ -129,13 +127,13 @@ func (handler *VocabularyHandler) SearchVocabulary(c *gin.Context) {
 
 	var pagination dto.PaginationRequest
 	if err := c.ShouldBindQuery(&pagination); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.vocabQry.SearchVocabulary(c.Request.Context(), query, pagination)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.SuccessWithMetadata(c, http.StatusOK, res.Items, res.Metadata)
@@ -144,13 +142,13 @@ func (handler *VocabularyHandler) SearchVocabulary(c *gin.Context) {
 func (handler *VocabularyHandler) UpdateVocabulary(c *gin.Context) {
 	var req vdto.UpdateVocabularyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.vocabCmd.UpdateVocabulary(c.Request.Context(), c.Param("id"), req)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -158,7 +156,7 @@ func (handler *VocabularyHandler) UpdateVocabulary(c *gin.Context) {
 
 func (handler *VocabularyHandler) DeleteVocabulary(c *gin.Context) {
 	if err := handler.vocabCmd.DeleteVocabulary(c.Request.Context(), c.Param("id")); err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, nil, "common.deleted_successfully")
@@ -169,7 +167,7 @@ func (handler *VocabularyHandler) DeleteVocabulary(c *gin.Context) {
 func (handler *VocabularyHandler) ListTopics(c *gin.Context) {
 	res, err := handler.topicQry.ListTopics(c.Request.Context())
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -180,13 +178,13 @@ func (handler *VocabularyHandler) ListTopics(c *gin.Context) {
 func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 	var req vdto.OCRScanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.ocrCmd.ProcessOCRScan(c.Request.Context(), req)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -197,13 +195,13 @@ func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 func (handler *VocabularyHandler) ImportVocabularies(c *gin.Context) {
 	var req vdto.BulkImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.importCmd.ImportVocabularies(c.Request.Context(), req)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -214,14 +212,14 @@ func (handler *VocabularyHandler) ImportVocabularies(c *gin.Context) {
 func (handler *VocabularyHandler) CreateFolder(c *gin.Context) {
 	var req vdto.CreateFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	userID := c.GetString("user_id")
 	res, err := handler.folderCmd.CreateFolder(c.Request.Context(), userID, req)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusCreated, res)
@@ -231,7 +229,7 @@ func (handler *VocabularyHandler) ListFolders(c *gin.Context) {
 	userID := c.GetString("user_id")
 	res, err := handler.folderQry.ListFolders(c.Request.Context(), userID)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -240,14 +238,14 @@ func (handler *VocabularyHandler) ListFolders(c *gin.Context) {
 func (handler *VocabularyHandler) UpdateFolder(c *gin.Context) {
 	var req vdto.UpdateFolderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	userID := c.GetString("user_id")
 	res, err := handler.folderCmd.UpdateFolder(c.Request.Context(), c.Param("id"), userID, req)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, res)
@@ -256,7 +254,7 @@ func (handler *VocabularyHandler) UpdateFolder(c *gin.Context) {
 func (handler *VocabularyHandler) DeleteFolder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if err := handler.folderCmd.DeleteFolder(c.Request.Context(), c.Param("id"), userID); err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, nil, "common.deleted_successfully")
@@ -265,13 +263,13 @@ func (handler *VocabularyHandler) DeleteFolder(c *gin.Context) {
 func (handler *VocabularyHandler) AddVocabularyToFolder(c *gin.Context) {
 	var req vdto.FolderVocabularyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	userID := c.GetString("user_id")
 	if err := handler.folderCmd.AddVocabulary(c.Request.Context(), c.Param("id"), req.VocabularyID, userID); err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, nil)
@@ -280,7 +278,7 @@ func (handler *VocabularyHandler) AddVocabularyToFolder(c *gin.Context) {
 func (handler *VocabularyHandler) RemoveVocabularyFromFolder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if err := handler.folderCmd.RemoveVocabulary(c.Request.Context(), c.Param("id"), c.Param("vocab_id"), userID); err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.Success(c, http.StatusOK, nil, "common.deleted_successfully")
@@ -290,33 +288,14 @@ func (handler *VocabularyHandler) ListFolderVocabularies(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var pagination dto.PaginationRequest
 	if err := c.ShouldBindQuery(&pagination); err != nil {
-		response.ValidationBadRequest(c, err)
+		response.ValidationError(c, err)
 		return
 	}
 
 	res, err := handler.folderQry.ListVocabularies(c.Request.Context(), c.Param("id"), userID, pagination)
 	if err != nil {
-		handleError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 	response.SuccessWithMetadata(c, http.StatusOK, res.Items, res.Metadata)
-}
-
-func handleError(c *gin.Context, err error) {
-	var domErr *sharederror.AppError
-	if errors.As(err, &domErr) {
-		msg := domErr.Message()
-		switch domErr.Code() {
-		case sharederror.CodeInvalidInput:
-			response.BadRequest(c, msg)
-		case sharederror.CodeNotFound:
-			response.NotFound(c, msg)
-		case sharederror.CodeServiceUnavailable:
-			response.ServiceUnavailable(c, msg)
-		default:
-			response.InternalServerError(c, msg)
-		}
-		return
-	}
-	response.InternalServerError(c, "")
 }

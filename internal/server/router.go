@@ -4,6 +4,7 @@ import (
 	"learning-go/internal/auth"
 	"learning-go/internal/infrastructure/config"
 	"learning-go/internal/shared/middleware"
+	"learning-go/internal/shared/response"
 	"learning-go/internal/vocabulary"
 	"net/http"
 
@@ -40,7 +41,11 @@ func NewRouter(
 
 	// Public routes with rate limiting
 	public := r.Group("/")
-	public.Use(middleware.RateLimitMiddleware(5, 10))
+	const (
+		publicRateLimitRPS   = 5
+		publicRateLimitBurst = 10
+	)
+	public.Use(middleware.RateLimitMiddleware(publicRateLimitRPS, publicRateLimitBurst))
 
 	// Protected routes
 	api := r.Group("/api")
@@ -49,6 +54,10 @@ func NewRouter(
 	// Register modules
 	authModule.RegisterRoutes(public, api)
 	vocabularyModule.RegisterRoutes(public, api)
+
+	r.NoRoute(func(c *gin.Context) {
+		response.NotFound(c, "common.route_not_found")
+	})
 
 	return r
 }

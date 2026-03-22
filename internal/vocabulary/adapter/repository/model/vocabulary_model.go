@@ -33,29 +33,29 @@ type VocabularyModel struct {
 
 func (VocabularyModel) TableName() string { return "vocabularies" }
 
-func (m *VocabularyModel) ToEntity() *domain.Vocabulary {
-	examples := make([]domain.Example, len(m.Examples.Data))
-	copy(examples, m.Examples.Data)
+func (model *VocabularyModel) ToEntity() *domain.Vocabulary {
+	examples := make([]domain.Example, len(model.Examples.Data))
+	copy(examples, model.Examples.Data)
 
-	radicals := make([]string, len(m.Radicals))
-	copy(radicals, m.Radicals)
+	radicals := make([]string, len(model.Radicals))
+	copy(radicals, model.Radicals)
 
 	return &domain.Vocabulary{
-		ID:              m.ID,
-		Hanzi:           m.Hanzi,
-		Pinyin:          m.Pinyin,
-		MeaningVI:       m.MeaningVI,
-		MeaningEN:       m.MeaningEN,
-		HSKLevel:        m.HSKLevel,
-		AudioURL:        m.AudioURL,
+		ID:              model.ID,
+		Hanzi:           model.Hanzi,
+		Pinyin:          model.Pinyin,
+		MeaningVI:       model.MeaningVI,
+		MeaningEN:       model.MeaningEN,
+		HSKLevel:        model.HSKLevel,
+		AudioURL:        model.AudioURL,
 		Examples:        examples,
 		Radicals:        radicals,
-		StrokeCount:     m.StrokeCount,
-		StrokeDataURL:   m.StrokeDataURL,
-		RecognitionOnly: m.RecognitionOnly,
-		FrequencyRank:   m.FrequencyRank,
-		CreatedAt:       m.CreatedAt,
-		UpdatedAt:       m.UpdatedAt,
+		StrokeCount:     model.StrokeCount,
+		StrokeDataURL:   model.StrokeDataURL,
+		RecognitionOnly: model.RecognitionOnly,
+		FrequencyRank:   model.FrequencyRank,
+		CreatedAt:       model.CreatedAt,
+		UpdatedAt:       model.UpdatedAt,
 	}
 }
 

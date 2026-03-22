@@ -8,8 +8,6 @@ import (
 	"learning-go/internal/vocabulary/domain"
 	"time"
 
-	sharederror "learning-go/internal/shared/error"
-
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -36,7 +34,7 @@ func (repo *FolderRepository) FindByID(ctx context.Context, id uuid.UUID) (*doma
 	var m model.FolderModel
 	if err := repo.db.WithContext(ctx).First(&m, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NewNotFound("folder.not_found")
+			return nil, nil
 		}
 		return nil, err
 	}

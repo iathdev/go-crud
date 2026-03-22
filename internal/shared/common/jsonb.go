@@ -16,15 +16,15 @@ func NewJSONB[T any](data T) JSONB[T] {
 	return JSONB[T]{Data: data}
 }
 
-func (j JSONB[T]) Value() (driver.Value, error) {
-	bytes, err := json.Marshal(j.Data)
+func (jsonb JSONB[T]) Value() (driver.Value, error) {
+	bytes, err := json.Marshal(jsonb.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal JSONB: %w", err)
 	}
 	return string(bytes), nil
 }
 
-func (j *JSONB[T]) Scan(value interface{}) error {
+func (jsonb *JSONB[T]) Scan(value interface{}) error {
 	if value == nil {
 		return nil
 	}
@@ -37,5 +37,5 @@ func (j *JSONB[T]) Scan(value interface{}) error {
 	default:
 		return fmt.Errorf("JSONB.Scan: unsupported type %T", value)
 	}
-	return json.Unmarshal(bytes, &j.Data)
+	return json.Unmarshal(bytes, &jsonb.Data)
 }

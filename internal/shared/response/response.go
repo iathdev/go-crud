@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/i18n"
 
 	"github.com/gin-gonic/gin"
@@ -93,18 +94,18 @@ func BadRequest(c *gin.Context, message string, err ...interface{}) {
 	Error(c, http.StatusBadRequest, msg, err...)
 }
 
-// ValidationBadRequest formats Gin binding/validation errors into field-level details.
-func ValidationBadRequest(c *gin.Context, err error) {
+// ValidationError formats Gin binding/validation errors into field-level details (HTTP 422).
+func ValidationError(c *gin.Context, err error) {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		fields := make(map[string]string, len(ve))
 		for _, fe := range ve {
 			fields[toSnakeCase(fe.Field())] = fe.Tag()
 		}
-		BadRequest(c, "common.bad_request", fields)
+		UnprocessableEntity(c, "common.validation_failed", fields)
 		return
 	}
-	BadRequest(c, "")
+	UnprocessableEntity(c, "")
 }
 
 // toSnakeCase converts PascalCase field name to snake_case to match JSON tags.
@@ -163,12 +164,48 @@ func ServiceUnavailable(c *gin.Context, message string, err ...interface{}) {
 	Error(c, http.StatusServiceUnavailable, msg, err...)
 }
 
+func UnprocessableEntity(c *gin.Context, message string, err ...interface{}) {
+	msg := message
+	if msg == "" {
+		msg = "common.validation_failed"
+	}
+	Error(c, http.StatusUnprocessableEntity, msg, err...)
+}
+
 func InternalServerError(c *gin.Context, message string, err ...interface{}) {
 	msg := message
 	if msg == "" {
 		msg = "common.internal_server_error"
 	}
 	Error(c, http.StatusInternalServerError, msg, err...)
+}
+
+// HandleError maps AppError to HTTP response.
+func HandleError(c *gin.Context, err error) {
+	var domErr *apperr.AppError
+	if errors.As(err, &domErr) {
+		msg := domErr.Message()
+		switch domErr.Code() {
+		case apperr.CodeBadRequest:
+			BadRequest(c, msg)
+		case apperr.CodeUnauthorized:
+			Unauthorized(c, msg)
+		case apperr.CodeForbidden:
+			Forbidden(c, msg)
+		case apperr.CodeNotFound:
+			NotFound(c, msg)
+		case apperr.CodeConflict:
+			Conflict(c, msg)
+		case apperr.CodeUnprocessableEntity:
+			UnprocessableEntity(c, msg)
+		case apperr.CodeServiceUnavailable:
+			ServiceUnavailable(c, msg)
+		default:
+			InternalServerError(c, msg)
+		}
+		return
+	}
+	InternalServerError(c, "")
 }
 
 func getLang(c *gin.Context) string {

@@ -11,5 +11,6 @@
   "common.invalid_input": "ข้อมูลไม่ถูกต้อง",
   "common.too_many_requests": "คำขอมากเกินไป กรุณาลองใหม่ภายหลัง",
   "common.deleted_successfully": "ลบเรียบร้อยแล้ว",
-  "common.service_unavailable": "บริการไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง"
+  "common.service_unavailable": "บริการไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง",
+  "common.route_not_found": "ไม่พบเส้นทางที่ร้องขอ"
 }

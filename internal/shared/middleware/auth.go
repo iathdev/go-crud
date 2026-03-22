@@ -1,12 +1,10 @@
 package middleware
 
 import (
-	"errors"
 	"learning-go/internal/auth/application/port"
 	"learning-go/internal/auth/domain"
 	"learning-go/internal/shared/common"
 	"learning-go/internal/shared/ctxlog"
-	sharederror "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
 	"strings"
@@ -19,7 +17,7 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			logger.WithContext(c.Request.Context()).Debug("auth rejected",
+			logger.WithContext(c.Request.Context()).Debug("[AUTH] auth rejected",
 				zap.String("reason", "missing or invalid authorization header"),
 				zap.String("client_ip", common.ResolveClientIP(c.Request)),
 			)
@@ -32,13 +30,14 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 
 		prepUser, err := prepService.ValidateToken(c.Request.Context(), token)
 		if err != nil {
-			handleMiddlewareError(c, err)
+			response.HandleError(c, err)
+			c.Abort()
 			return
 		}
 
 		user, isFirstLogin, err := upsertUser(c, userRepo, prepUser)
 		if err != nil {
-			logger.WithContext(c.Request.Context()).Error("auth middleware upsert failed", zap.Error(err))
+			logger.WithContext(c.Request.Context()).Error("[AUTH] upsert failed", zap.Error(err))
 			response.InternalServerError(c, "")
 			c.Abort()
 			return
@@ -81,26 +80,4 @@ func upsertUser(c *gin.Context, userRepo port.UserRepositoryPort, prepUser *doma
 	}
 
 	return existing, false, nil
-}
-
-func handleMiddlewareError(c *gin.Context, err error) {
-	var appErr *sharederror.AppError
-	if errors.As(err, &appErr) {
-		switch appErr.Code() {
-		case sharederror.CodeSSOTokenInvalid:
-			logger.WithContext(c.Request.Context()).Debug("auth rejected",
-				zap.String("reason", "invalid prep token"),
-				zap.String("client_ip", common.ResolveClientIP(c.Request)),
-			)
-			response.Unauthorized(c, "auth.unauthorized")
-		case sharederror.CodeSSOServiceError, sharederror.CodeServiceUnavailable:
-			logger.WithContext(c.Request.Context()).Error("prep service unavailable", zap.Error(err))
-			response.ServiceUnavailable(c, "auth.service_unavailable")
-		default:
-			response.InternalServerError(c, "")
-		}
-	} else {
-		response.InternalServerError(c, "")
-	}
-	c.Abort()
 }

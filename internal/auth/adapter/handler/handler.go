@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"learning-go/internal/auth/application/port"
-	sharederror "learning-go/internal/shared/error"
 	"learning-go/internal/shared/response"
 	"net/http"
 
@@ -31,7 +30,7 @@ func (handler *AuthHandler) GetMe(c *gin.Context) {
 
 	res, err := handler.authUseCase.GetMe(c.Request.Context(), userID, firstLogin)
 	if err != nil {
-		handleAuthError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 
@@ -44,24 +43,4 @@ func getUserID(c *gin.Context) (uuid.UUID, error) {
 		return uuid.Nil, errors.New("user_id not in context")
 	}
 	return uuid.Parse(userIDStr.(string))
-}
-
-func handleAuthError(c *gin.Context, err error) {
-	var domErr *sharederror.AppError
-	if errors.As(err, &domErr) {
-		msg := domErr.Message()
-		switch domErr.Code() {
-		case sharederror.CodeNotFound:
-			response.NotFound(c, msg)
-		case sharederror.CodeUnauthorized:
-			response.Unauthorized(c, msg)
-		case sharederror.CodeServiceUnavailable:
-			response.ServiceUnavailable(c, msg)
-		default:
-			response.InternalServerError(c, msg)
-		}
-		return
-	}
-
-	response.InternalServerError(c, "")
 }

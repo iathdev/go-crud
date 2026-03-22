@@ -1,47 +1,71 @@
 # Coding Style
 
-## Naming — No abbreviations, must be immediately readable
+## Naming
 
-- **Receiver name**: Use meaningful names, NEVER use single-character abbreviations (`p`, `u`, `v`, `m`, `r`, `s`...).
-  - Bad: `func (p *UserProfile) CompleteOnboarding(...)`
-  - Good: `func (profile *UserProfile) CompleteOnboarding(...)`
-  - Good: `func (repo *VocabularyRepository) FindByID(...)`
-  - Good: `func (handler *VocabularyHandler) CreateVocabulary(...)`
-- **Variables and parameters**: Names must be self-explanatory, no abbreviations unless it's a widely accepted convention.
-  - Bad: `v`, `f`, `gp`, `m`
-  - Good: `vocab`, `folder`, `grammarPoint`, `model`
-- **Allowed abbreviations**: `ctx`, `err`, `db`, `cfg`, `id`, `req`, `res`, `tx` (transaction).
+- **No single-character receivers.** Use meaningful names: `profile`, `repo`, `handler` — not `p`, `r`, `h`.
+- **No abbreviations** except: `ctx`, `err`, `db`, `cfg`, `id`, `req`, `res`, `tx`.
 
-## Error handling — Correct status code first, descriptive i18n key second
+## Logging
 
-- **Choose the right error constructor based on the actual cause**, not as a catch-all:
-  - `NewInvalidInput` (400) — Client sent bad data: invalid UUID, failed validation, FK violation (referencing non-existent ID)
-  - `NewNotFound` (404) — The requested resource does not exist
-  - `NewUnauthorized` (401) — Authentication failed or missing
-  - `NewServiceUnavailable` (503) — External service is down (OCR service, SSO, etc.)
-  - `NewInternal` (500) — **Only** for truly unexpected system errors: DB connection lost, unhandled panic, unknown errors after all known types are filtered out
-- **Never use `NewInternal` as a default catch-all.** Before returning 500, ask: "Is this really a server-side system failure, or is it caused by bad client input?" FK violations, missing references, constraint errors → 400, not 500.
-- **Error message must be an i18n key** that clearly describes the error. Never use hardcoded English strings.
-  - Bad: `sharederror.NewInternal("failed to save vocabulary", err)` (hardcoded English)
-  - Good: `sharederror.NewNotFound("vocabulary.not_found")`
-  - Good: `sharederror.NewInvalidInput("vocabulary.invalid_topic_id")`
-- **Always check `IsAppError` before falling back to `NewInternal`.** Repos may return typed AppErrors (not-found, invalid input from FK violations). The use case must propagate those, not swallow them into 500:
-  ```go
-  if err := repo.Save(ctx, entity); err != nil {
-      if _, ok := sharederror.IsAppError(err); ok {
-          return err  // propagate 400/404/etc. from repo
-      }
-      return sharederror.NewInternal(ctx, "entity.save_failed", err)
-  }
-  ```
-- **`NewInternal` and `NewServiceUnavailable` auto-log.** They accept `ctx` and log the i18n key + cause error automatically. Do NOT add a separate `logger.WithContext(ctx).Error(...)` call before them — it would duplicate the log.
-  - Bad (duplicated log):
-    ```go
-    logger.WithContext(ctx).Error("[VOCABULARY] error saving", zap.Error(err))
-    return sharederror.NewInternal(ctx, "vocabulary.save_failed", err)
-    ```
-  - Good (single call, auto-logged):
-    ```go
-    return sharederror.NewInternal(ctx, "vocabulary.save_failed", err)
-    ```
-- **Logs stay in English** for developer debugging. i18n keys are only for the API response message (translated at the response layer). For `Warn`/`Info`/`Debug` logs (not tied to error constructors), use `[MODULE]` prefix manually.
+All log messages MUST include module prefix: `[AUTH]`, `[VOCABULARY]`, `[SERVER]`.
+
+```go
+logger.WithContext(ctx).Warn("[VOCABULARY] error fetching topics", zap.Error(err))
+```
+
+- **Use cases**: `Warn`/`Info`/`Debug` only for non-error situations. Never `Error` — just create and return errors.
+- **Handlers**: No logging. Just `response.HandleError(c, err)`. Request logger middleware auto-logs 5xx.
+
+## Error handling
+
+### Flow
+
+```
+Repo (raw error / nil) → Use case (wraps into AppError) → Handler (response.HandleError) → HTTP status + i18n
+```
+
+### Constructors
+
+**4xx — no cause:**
+
+| Constructor | When |
+|---|---|
+| `BadRequest(key)` 400 | Invalid input, malformed JSON, FK violation |
+| `Unauthorized(key)` 401 | Auth failed or missing |
+| `Forbidden(key)` 403 | Authenticated but not allowed |
+| `NotFound(key)` 404 | Resource doesn't exist |
+| `Conflict(key)` 409 | Duplicate / already exists |
+| `UnprocessableEntity(key)` 422 | Validation failure, domain entity errors |
+
+**5xx — always carry cause:**
+
+| Constructor | When |
+|---|---|
+| `InternalServerError(key, err)` 500 | Unexpected system errors only |
+| `ServiceUnavailable(key, err)` 503 | External service down, circuit breaker open |
+
+Never use 500 as catch-all. FK violations → 400. Domain validation → 422.
+
+### Key: i18n key, not English
+
+```go
+// Bad
+apperr.InternalServerError("failed to save", err)
+// Good
+apperr.NotFound("vocabulary.not_found")
+```
+
+### Repos: raw errors only, no AppError
+
+- **Not found** → `(nil, nil)`. Use case checks `if result == nil` → `apperr.NotFound(key)`.
+- **Other errors** → raw error. Use case wraps → `apperr.InternalServerError(key, err)`.
+
+### Domain validation errors
+
+Domain uses `errors.New()` sentinels. Use cases map via mapper → `UnprocessableEntity(key)`.
+
+### AppError methods
+
+- `Error()` → `"NOT_FOUND: vocabulary.not_found"` (debug/logs)
+- `Message()` → `"vocabulary.not_found"` (i18n key for response)
+- `Unwrap()` → cause (5xx only)

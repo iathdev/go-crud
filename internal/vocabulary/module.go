@@ -19,7 +19,7 @@ func NewModule(db *gorm.DB) *Module {
 	topicRepo := repository.NewTopicRepository(db)
 	grammarRepo := repository.NewGrammarPointRepository(db)
 
-	vocabCmd := usecase.NewVocabularyCommand(vocabRepo)
+	vocabCmd := usecase.NewVocabularyCommand(vocabRepo, topicRepo, grammarRepo)
 	vocabQry := usecase.NewVocabularyQuery(vocabRepo, topicRepo, grammarRepo)
 	folderCmd := usecase.NewFolderCommand(folderRepo, vocabRepo)
 	folderQry := usecase.NewFolderQuery(folderRepo)

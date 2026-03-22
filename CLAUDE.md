@@ -68,7 +68,7 @@ internal/<module>/
   - `adapter/repository/` — Postgres vocabulary repo, folder repo, topic repo, grammar point repo
   - `module.go` — Wires all vocabulary internals, exposes RegisterRoutes
 - **`internal/shared/`** — Shared kernel
-  - `error/` — AppError with typed codes (NOT_FOUND, INVALID_INPUT, etc.)
+  - `error/` — AppError with typed codes (BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, UNPROCESSABLE_ENTITY, INTERNAL_SERVER_ERROR, SERVICE_UNAVAILABLE)
   - `logger/` — Logger interface and global logger
   - `ctxlog/` — Context-based field storage for structured logging
   - `i18n/` — Internationalization engine (en, vi, zh, th, id)
@@ -94,8 +94,8 @@ internal/<module>/
 - **Module registration**: Each module exposes `NewModule(deps...) *Module` and `RegisterRoutes(public, protected *gin.RouterGroup)`. The DI container creates modules; the router calls RegisterRoutes.
 - **Domain entities vs DB models**: Domain entities live in `<module>/domain/`, DB models in `<module>/adapter/repository/`. Repositories handle mapping between them.
 - **CQRS**: Vocabulary and learning modules split use cases into `*Command` and `*Query` types with corresponding port interfaces. Follow this pattern for new modules.
-- **Circuit breaker**: Infrastructure-level gobreaker v2 wrapper lives in `infrastructure/circuitbreaker/` with a `BreakerRegistry` pattern. The breaker converts `gobreaker.ErrOpenState`/`ErrTooManyRequests` into domain `ErrServiceUnavailable`. Only `nil` and `ErrNotFound` count as success. Settings configurable via `CB_*` env vars. Currently not wired to repository adapters but available for use (e.g., wrapping external service calls).
-- **Error handling**: `AppError` in `shared/error/` carries a typed `Code`. Handlers switch on `AppError.Code()` to map to HTTP status codes. All error messages are i18n-translated at the response layer.
+- **Circuit breaker**: Infrastructure-level gobreaker v2 wrapper lives in `infrastructure/circuitbreaker/` with a `BreakerRegistry` pattern. The breaker converts `gobreaker.ErrOpenState`/`ErrTooManyRequests` into `apperr.ServiceUnavailable()`. Only `nil` and `ErrNotFound` count as success. Settings configurable via `CB_*` env vars. Currently not wired to repository adapters but available for use (e.g., wrapping external service calls).
+- **Error handling**: `AppError` in `shared/error/` carries a typed `Code`. `response.HandleError(c, err)` is the shared function that maps `AppError.Code()` to HTTP status codes. Handlers call it directly — no per-module wrappers. All error messages are i18n-translated at the response layer.
 - **i18n**: Language detected from `lang` query param > `X-Lang` header > `Accept-Language` header. Translation files are JSON in `resources/i18n/<lang>/<domain>.json`. Falls back to English, then to the raw key.
 - **Middleware chain**: SecurityHeaders -> CORS -> RequestID -> OTEL -> RequestLogger -> Language -> Recovery. Rate limiting on public routes. JWT auth on `/api/*` routes.
 - **Config**: All config via environment variables loaded from `.env` using Viper.

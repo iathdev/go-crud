@@ -7,8 +7,6 @@ import (
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 
-	sharederror "learning-go/internal/shared/error"
-
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -52,7 +50,7 @@ func (repo *GrammarPointRepository) FindByCode(ctx context.Context, code string)
 	var m model.GrammarPointModel
 	if err := repo.db.WithContext(ctx).First(&m, "code = ?", code).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NewNotFound("grammar_point.not_found")
+			return nil, nil
 		}
 		return nil, err
 	}
