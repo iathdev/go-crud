@@ -15,9 +15,9 @@ import (
 )
 
 type VocabularyQuery struct {
-	vocabRepo    port.VocabularyRepositoryPort
-	topicRepo    port.TopicRepositoryPort
-	grammarRepo  port.GrammarPointRepositoryPort
+	vocabRepo   port.VocabularyRepositoryPort
+	topicRepo   port.TopicRepositoryPort
+	grammarRepo port.GrammarPointRepositoryPort
 }
 
 func NewVocabularyQuery(
@@ -35,12 +35,15 @@ func NewVocabularyQuery(
 func (useCase *VocabularyQuery) GetVocabulary(ctx context.Context, id string) (*vdto.VocabularyResponse, error) {
 	uuidID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, sharederror.ErrInvalidInput
+		return nil, sharederror.NewInvalidInput("vocabulary.invalid_id")
 	}
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	return toVocabularyResponse(vocab), nil
@@ -49,12 +52,15 @@ func (useCase *VocabularyQuery) GetVocabulary(ctx context.Context, id string) (*
 func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id string) (*vdto.VocabularyDetailResponse, error) {
 	uuidID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, sharederror.ErrInvalidInput
+		return nil, sharederror.NewInvalidInput("vocabulary.invalid_id")
 	}
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	// Fetch related topics
@@ -100,12 +106,18 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 
 	total, err := useCase.vocabRepo.CountByHSKLevel(ctx, level)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error counting vocabularies")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	vocabs, err := useCase.vocabRepo.FindByHSKLevel(ctx, level, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error listing vocabularies")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -114,7 +126,10 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pagination dto.PaginationRequest) (*dto.PaginatedResponse, error) {
 	topic, err := useCase.topicRepo.FindBySlug(ctx, slug)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding topic")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "topic.query_failed", err)
 	}
 
 	normalizePagination(&pagination)
@@ -122,12 +137,18 @@ func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pa
 
 	total, err := useCase.vocabRepo.CountByTopicID(ctx, topic.ID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error counting vocabularies by topic")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	vocabs, err := useCase.vocabRepo.FindByTopicID(ctx, topic.ID, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error listing vocabularies by topic")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -139,12 +160,18 @@ func (useCase *VocabularyQuery) SearchVocabulary(ctx context.Context, query stri
 
 	total, err := useCase.vocabRepo.CountSearch(ctx, query)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error counting search results")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	vocabs, err := useCase.vocabRepo.Search(ctx, query, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error searching vocabularies")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -231,12 +258,4 @@ func normalizePagination(p *dto.PaginationRequest) {
 	if p.PageSize > 100 {
 		p.PageSize = 100
 	}
-}
-
-func classifyRepoError(ctx context.Context, err error, msg string) error {
-	if _, ok := sharederror.IsAppError(err); ok {
-		return err
-	}
-	logger.WithContext(ctx).Error(msg, zap.Error(err))
-	return sharederror.ErrInternal
 }

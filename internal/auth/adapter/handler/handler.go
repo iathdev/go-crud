@@ -49,13 +49,16 @@ func getUserID(c *gin.Context) (uuid.UUID, error) {
 func handleAuthError(c *gin.Context, err error) {
 	var domErr *sharederror.AppError
 	if errors.As(err, &domErr) {
+		msg := domErr.Message()
 		switch domErr.Code() {
 		case sharederror.CodeNotFound:
-			response.NotFound(c, "")
+			response.NotFound(c, msg)
+		case sharederror.CodeUnauthorized:
+			response.Unauthorized(c, msg)
 		case sharederror.CodeServiceUnavailable:
-			response.ServiceUnavailable(c, "")
+			response.ServiceUnavailable(c, msg)
 		default:
-			response.InternalServerError(c, "")
+			response.InternalServerError(c, msg)
 		}
 		return
 	}

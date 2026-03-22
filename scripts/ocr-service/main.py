@@ -6,6 +6,8 @@ Supported engines:
   - tesseract           — Tesseract OCR (requires: brew install tesseract tesseract-lang && pip install pytesseract)
 
 Input: JSON with base64-encoded image (same format as Google Vision / Baidu OCR APIs).
+
+Post-processing: OCR returns text lines → jieba segments into words → filter CJK-only words.
 """
 
 import base64
@@ -15,6 +17,7 @@ import tempfile
 
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
+import jieba
 from fastapi import FastAPI, HTTPException
 from paddleocr import PaddleOCR
 from pydantic import BaseModel
@@ -43,11 +46,24 @@ def _get_paddle_engine(language: str) -> PaddleOCR:
     return _paddle_engines[paddle_lang]
 
 
+def _segment_chinese(text: str) -> list[str]:
+    """Segment Chinese text into words using jieba, keep only CJK words."""
+    words = jieba.cut(text)
+    result = []
+    for word in words:
+        cjk_only = "".join(CJK_PATTERN.findall(word))
+        if cjk_only:
+            result.append(cjk_only)
+    return result
+
+
 def _extract_paddleocr(image_path: str, language: str) -> list[dict]:
     engine = _get_paddle_engine(language)
     results = engine.predict(image_path)
 
     characters = []
+    seen = set()
+
     for result in results:
         texts = result.get("rec_texts", [])
         scores = result.get("rec_scores", [])
@@ -56,12 +72,16 @@ def _extract_paddleocr(image_path: str, language: str) -> list[dict]:
             confidence = float(score)
 
             if language == "zh":
-                cjk_matches = CJK_PATTERN.findall(text)
-                text = "".join(cjk_matches)
-                if not text:
-                    continue
-
-            characters.append({"text": text, "confidence": round(confidence, 4), "candidates": []})
+                words = _segment_chinese(text)
+                for word in words:
+                    if word not in seen:
+                        seen.add(word)
+                        characters.append({"text": word, "confidence": round(confidence, 4), "candidates": []})
+            else:
+                text = text.strip()
+                if text and text not in seen:
+                    seen.add(text)
+                    characters.append({"text": text, "confidence": round(confidence, 4), "candidates": []})
 
     return characters
 
@@ -84,6 +104,8 @@ def _extract_tesseract(image_path: str, language: str) -> list[dict]:
     data = pytesseract.image_to_data(img, lang=tess_lang, output_type=pytesseract.Output.DICT)
 
     characters = []
+    seen = set()
+
     for i, text in enumerate(data["text"]):
         text = text.strip()
         if not text:
@@ -93,12 +115,15 @@ def _extract_tesseract(image_path: str, language: str) -> list[dict]:
         confidence = max(0.0, float(conf) / 100.0) if conf != -1 else 0.0
 
         if language == "zh":
-            cjk_matches = CJK_PATTERN.findall(text)
-            text = "".join(cjk_matches)
-            if not text:
-                continue
-
-        characters.append({"text": text, "confidence": round(confidence, 4), "candidates": []})
+            words = _segment_chinese(text)
+            for word in words:
+                if word not in seen:
+                    seen.add(word)
+                    characters.append({"text": word, "confidence": round(confidence, 4), "candidates": []})
+        else:
+            if text not in seen:
+                seen.add(text)
+                characters.append({"text": text, "confidence": round(confidence, 4), "candidates": []})
 
     return characters
 

@@ -5,7 +5,7 @@
 MIGRATE ?= migrate
 STEPS ?= 1
 URL := postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
-PATH_MIG := $(if $(MIGRATION_PATH),$(MIGRATION_PATH),migrations)
+PATH_MIG := migrations
 
 run:
 	go run cmd/api/main.go

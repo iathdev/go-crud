@@ -1,6 +1,12 @@
 package sharederror
 
-import "errors"
+import (
+	"context"
+	"errors"
+	"learning-go/internal/shared/logger"
+
+	"go.uber.org/zap"
+)
 
 type Code string
 
@@ -11,8 +17,8 @@ const (
 	CodeUnauthorized       Code = "UNAUTHORIZED"
 	CodeInternal           Code = "INTERNAL"
 	CodeServiceUnavailable Code = "SERVICE_UNAVAILABLE"
-	CodeSSOTokenInvalid  Code = "SSO_TOKEN_INVALID"
-	CodeSSOServiceError  Code = "SSO_SERVICE_ERROR"
+	CodeSSOTokenInvalid    Code = "SSO_TOKEN_INVALID"
+	CodeSSOServiceError    Code = "SSO_SERVICE_ERROR"
 )
 
 type AppError struct {
@@ -28,9 +34,9 @@ func (appErr *AppError) Error() string {
 	return appErr.message
 }
 
-func (appErr *AppError) Code() Code       { return appErr.code }
-func (appErr *AppError) Message() string  { return appErr.message }
-func (appErr *AppError) Unwrap() error    { return appErr.cause }
+func (appErr *AppError) Code() Code      { return appErr.code }
+func (appErr *AppError) Message() string { return appErr.message }
+func (appErr *AppError) Unwrap() error   { return appErr.cause }
 
 func (appErr *AppError) Is(target error) bool {
 	var t *AppError
@@ -51,6 +57,27 @@ var (
 	ErrSSOServiceError    = &AppError{code: CodeSSOServiceError, message: "auth.service_unavailable"}
 )
 
+func NewNotFound(message string) *AppError {
+	return &AppError{code: CodeNotFound, message: message}
+}
+
+func NewInvalidInput(message string) *AppError {
+	return &AppError{code: CodeInvalidInput, message: message}
+}
+
+func NewUnauthorized(message string) *AppError {
+	return &AppError{code: CodeUnauthorized, message: message}
+}
+
+func NewInternal(ctx context.Context, message string, cause error) *AppError {
+	logger.WithContext(ctx).Error(message, zap.Error(cause))
+	return &AppError{code: CodeInternal, message: message, cause: cause}
+}
+
+func NewServiceUnavailable(ctx context.Context, message string, cause error) *AppError {
+	logger.WithContext(ctx).Error(message, zap.Error(cause))
+	return &AppError{code: CodeServiceUnavailable, message: message, cause: cause}
+}
 
 func IsAppError(err error) (*AppError, bool) {
 	var ae *AppError

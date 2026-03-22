@@ -23,12 +23,15 @@ func NewFolderQuery(folderRepo port.FolderRepositoryPort) port.FolderQueryPort {
 func (useCase *FolderQuery) ListFolders(ctx context.Context, userID string) ([]*vdto.FolderResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, sharederror.ErrInvalidInput
+		return nil, sharederror.NewInvalidInput("folder.invalid_user_id")
 	}
 
 	folders, err := useCase.folderRepo.FindByUserID(ctx, uid)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error listing folders")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "folder.query_failed", err)
 	}
 
 	result := make([]*vdto.FolderResponse, 0, len(folders))
@@ -49,12 +52,18 @@ func (useCase *FolderQuery) ListVocabularies(ctx context.Context, folderID strin
 
 	total, err := useCase.folderRepo.CountVocabularies(ctx, folder.ID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error counting folder vocabularies")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "folder.query_failed", err)
 	}
 
 	vocabs, err := useCase.folderRepo.FindVocabularies(ctx, folder.ID, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error listing folder vocabularies")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "folder.query_failed", err)
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(pagination.PageSize)))
@@ -79,21 +88,24 @@ func (useCase *FolderQuery) ListVocabularies(ctx context.Context, folderID strin
 func getOwnedFolder(ctx context.Context, folderRepo port.FolderRepositoryPort, id string, userID string) (*domain.Folder, error) {
 	fid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, sharederror.ErrInvalidInput
+		return nil, sharederror.NewInvalidInput("folder.invalid_id")
 	}
 
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, sharederror.ErrInvalidInput
+		return nil, sharederror.NewInvalidInput("folder.invalid_user_id")
 	}
 
 	folder, err := folderRepo.FindByID(ctx, fid)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error finding folder")
+		if _, ok := sharederror.IsAppError(err); ok {
+			return nil, err
+		}
+		return nil, sharederror.NewInternal(ctx, "folder.query_failed", err)
 	}
 
 	if folder.UserID != uid {
-		return nil, sharederror.ErrNotFound
+		return nil, sharederror.NewNotFound("folder.not_found")
 	}
 
 	return folder, nil
@@ -107,4 +119,3 @@ func toFolderResponse(f *domain.Folder) *vdto.FolderResponse {
 		CreatedAt:   f.CreatedAt,
 	}
 }
-

@@ -8,8 +8,6 @@ import (
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 const (
@@ -69,8 +67,7 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("[OCR] error finding existing vocabularies", zap.Error(err))
-		return nil, sharederror.ErrInternal
+		return nil, sharederror.NewInternal(ctx, "ocr.find_existing_failed", err)
 	}
 
 	existingMap := make(map[string]*domain.Vocabulary, len(existing))
@@ -121,8 +118,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("[OCR] error extracting characters from image", zap.Error(err))
-		return nil, sharederror.ErrInternal
+		return nil, sharederror.NewServiceUnavailable(ctx, "ocr.recognize_failed", err)
 	}
 
 	totalDetected := len(ocrResult.Characters)
@@ -156,8 +152,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 			if _, ok := sharederror.IsAppError(err); ok {
 				return nil, err
 			}
-			logger.WithContext(ctx).Error("[OCR] error finding existing vocabularies", zap.Error(err))
-			return nil, sharederror.ErrInternal
+			return nil, sharederror.NewInternal(ctx, "ocr.find_existing_failed", err)
 		}
 		existingMap = make(map[string]*domain.Vocabulary, len(existing))
 		for _, v := range existing {
