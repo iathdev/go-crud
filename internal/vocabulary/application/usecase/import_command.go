@@ -31,7 +31,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("error checking existing vocabularies", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error checking existing vocabularies", zap.Error(err))
 		return nil, sharederror.ErrInternal
 	}
 
@@ -77,7 +77,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 			if _, ok := sharederror.IsAppError(err); ok {
 				return nil, err
 			}
-			logger.WithContext(ctx).Error("error batch saving vocabularies", zap.Error(err))
+			logger.WithContext(ctx).Error("[VOCABULARY] error batch saving vocabularies", zap.Error(err))
 			return nil, sharederror.ErrInternal
 		}
 	}

@@ -40,7 +40,7 @@ func (useCase *VocabularyQuery) GetVocabulary(ctx context.Context, id string) (*
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error finding vocabulary")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
 	}
 
 	return toVocabularyResponse(vocab), nil
@@ -54,14 +54,14 @@ func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id stri
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error finding vocabulary")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
 	}
 
 	// Fetch related topics
 	var topicResponses []vdto.TopicResponse
 	topics, err := useCase.findVocabTopics(ctx, uuidID)
 	if err != nil {
-		logger.WithContext(ctx).Warn("error fetching topics for vocabulary", zap.Error(err))
+		logger.WithContext(ctx).Warn("[VOCABULARY] error fetching topics for vocabulary", zap.Error(err))
 		topicResponses = []vdto.TopicResponse{}
 	} else {
 		topicResponses = make([]vdto.TopicResponse, 0, len(topics))
@@ -74,7 +74,7 @@ func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id stri
 	var gpResponses []vdto.GrammarPointResponse
 	grammarPoints, err := useCase.grammarRepo.FindByVocabularyID(ctx, uuidID)
 	if err != nil {
-		logger.WithContext(ctx).Warn("error fetching grammar points for vocabulary", zap.Error(err))
+		logger.WithContext(ctx).Warn("[VOCABULARY] error fetching grammar points for vocabulary", zap.Error(err))
 		gpResponses = []vdto.GrammarPointResponse{}
 	} else {
 		gpResponses = make([]vdto.GrammarPointResponse, 0, len(grammarPoints))
@@ -100,12 +100,12 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 
 	total, err := useCase.vocabRepo.CountByHSKLevel(ctx, level)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error counting vocabularies")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error counting vocabularies")
 	}
 
 	vocabs, err := useCase.vocabRepo.FindByHSKLevel(ctx, level, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error listing vocabularies")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error listing vocabularies")
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -114,7 +114,7 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pagination dto.PaginationRequest) (*dto.PaginatedResponse, error) {
 	topic, err := useCase.topicRepo.FindBySlug(ctx, slug)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error finding topic")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding topic")
 	}
 
 	normalizePagination(&pagination)
@@ -122,12 +122,12 @@ func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pa
 
 	total, err := useCase.vocabRepo.CountByTopicID(ctx, topic.ID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error counting vocabularies by topic")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error counting vocabularies by topic")
 	}
 
 	vocabs, err := useCase.vocabRepo.FindByTopicID(ctx, topic.ID, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error listing vocabularies by topic")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error listing vocabularies by topic")
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -139,12 +139,12 @@ func (useCase *VocabularyQuery) SearchVocabulary(ctx context.Context, query stri
 
 	total, err := useCase.vocabRepo.CountSearch(ctx, query)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error counting search results")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error counting search results")
 	}
 
 	vocabs, err := useCase.vocabRepo.Search(ctx, query, offset, pagination.PageSize)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error searching vocabularies")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error searching vocabularies")
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil

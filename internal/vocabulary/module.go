@@ -3,6 +3,7 @@ package vocabulary
 import (
 	"learning-go/internal/vocabulary/adapter/handler"
 	"learning-go/internal/vocabulary/adapter/repository"
+	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/application/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,7 @@ type Module struct {
 	handler *handler.VocabularyHandler
 }
 
-func NewModule(db *gorm.DB) *Module {
+func NewModule(db *gorm.DB, ocrEngines port.OCREngineRegistry) *Module {
 	vocabRepo := repository.NewVocabularyRepository(db)
 	folderRepo := repository.NewFolderRepository(db)
 	topicRepo := repository.NewTopicRepository(db)
@@ -24,7 +25,7 @@ func NewModule(db *gorm.DB) *Module {
 	folderCmd := usecase.NewFolderCommand(folderRepo, vocabRepo)
 	folderQry := usecase.NewFolderQuery(folderRepo)
 	topicQry := usecase.NewTopicQuery(topicRepo)
-	ocrCmd := usecase.NewOCRCommand(vocabRepo)
+	ocrCmd := usecase.NewOCRCommand(vocabRepo, ocrEngines)
 	importCmd := usecase.NewImportCommand(vocabRepo)
 
 	vocabHandler := handler.NewVocabularyHandler(vocabCmd, vocabQry, folderCmd, folderQry, topicQry, ocrCmd, importCmd)
@@ -48,6 +49,7 @@ func (module *Module) RegisterRoutes(public, protected *gin.RouterGroup) {
 
 	// OCR
 	protected.POST("/vocabularies/ocr-scan", module.handler.ProcessOCRScan)
+	public.POST("/vocabularies/ocr-image", module.handler.ProcessOCRImage)
 
 	// Admin import
 	protected.POST("/admin/vocabularies/import", module.handler.ImportVocabularies)

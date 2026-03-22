@@ -4,6 +4,7 @@ import (
 	"learning-go/internal/auth"
 	"learning-go/internal/infrastructure/config"
 	"learning-go/internal/shared/middleware"
+	"learning-go/internal/shared/response"
 	"learning-go/internal/vocabulary"
 	"net/http"
 
@@ -35,6 +36,14 @@ func NewRouter(
 	r.Use(middleware.LanguageMiddleware())
 	r.Use(middleware.RecoveryMiddleware())
 
+	r.NoRoute(func(c *gin.Context) {
+		response.NotFound(c, "common.route_not_found")
+	})
+
+	r.NoMethod(func(c *gin.Context) {
+		response.Error(c, http.StatusMethodNotAllowed, "common.method_not_allowed")
+	})
+
 	// Health check
 	r.GET("/health", healthHandler(db))
 
@@ -43,12 +52,12 @@ func NewRouter(
 	public.Use(middleware.RateLimitMiddleware(5, 10))
 
 	// Protected routes
-	api := r.Group("/api")
-	api.Use(middleware.AuthMiddleware(authModule.PrepUserService, authModule.UserRepo))
+	v1 := r.Group("/api/v1")
+	v1.Use(middleware.AuthMiddleware(authModule.PrepUserService, authModule.UserRepo))
 
 	// Register modules
-	authModule.RegisterRoutes(public, api)
-	vocabularyModule.RegisterRoutes(public, api)
+	authModule.RegisterRoutes(public, v1)
+	vocabularyModule.RegisterRoutes(public, v1)
 
 	return r
 }

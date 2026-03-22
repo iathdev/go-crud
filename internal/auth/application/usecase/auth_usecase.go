@@ -22,7 +22,7 @@ func NewAuthUseCase(userRepo port.UserRepositoryPort) port.AuthUseCasePort {
 func (uc *AuthUseCase) GetMe(ctx context.Context, userID uuid.UUID, isFirstLogin bool) (*dto.MeResponse, error) {
 	user, err := uc.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		logger.WithContext(ctx).Error("error finding user", zap.Error(err))
+		logger.WithContext(ctx).Error("[AUTH] error finding user", zap.Error(err))
 		return nil, sharederror.ErrInternal
 	}
 	if user == nil {

@@ -11,5 +11,7 @@
   "common.invalid_input": "Input tidak valid",
   "common.too_many_requests": "Terlalu banyak permintaan, silakan coba lagi nanti",
   "common.deleted_successfully": "Berhasil dihapus",
-  "common.service_unavailable": "Layanan sementara tidak tersedia, silakan coba lagi nanti"
+  "common.service_unavailable": "Layanan sementara tidak tersedia, silakan coba lagi nanti",
+  "common.route_not_found": "Rute tidak ditemukan",
+  "common.method_not_allowed": "Metode tidak diizinkan"
 }

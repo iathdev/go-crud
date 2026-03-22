@@ -36,7 +36,7 @@ func (useCase *FolderCommand) CreateFolder(ctx context.Context, userID string, r
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("error saving folder", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error saving folder", zap.Error(err))
 		return nil, sharederror.ErrInternal
 	}
 
@@ -57,7 +57,7 @@ func (useCase *FolderCommand) UpdateFolder(ctx context.Context, id string, userI
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("error updating folder", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error updating folder", zap.Error(err))
 		return nil, sharederror.ErrInternal
 	}
 
@@ -74,7 +74,7 @@ func (useCase *FolderCommand) DeleteFolder(ctx context.Context, id string, userI
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		logger.WithContext(ctx).Error("error deleting folder", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error deleting folder", zap.Error(err))
 		return sharederror.ErrInternal
 	}
 	return nil
@@ -92,14 +92,14 @@ func (useCase *FolderCommand) AddVocabulary(ctx context.Context, folderID string
 	}
 
 	if _, err := useCase.vocabRepo.FindByID(ctx, vid); err != nil {
-		return classifyRepoError(ctx, err, "error finding vocabulary")
+		return classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
 	}
 
 	if err := useCase.folderRepo.AddVocabulary(ctx, folder.ID, vid); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		logger.WithContext(ctx).Error("error adding vocabulary to folder", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error adding vocabulary to folder", zap.Error(err))
 		return sharederror.ErrInternal
 	}
 	return nil
@@ -120,7 +120,7 @@ func (useCase *FolderCommand) RemoveVocabulary(ctx context.Context, folderID str
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		logger.WithContext(ctx).Error("error removing vocabulary from folder", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error removing vocabulary from folder", zap.Error(err))
 		return sharederror.ErrInternal
 	}
 	return nil

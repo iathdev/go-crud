@@ -112,6 +112,45 @@ type OCRScanResponse struct {
 	ExistingItems []VocabularyListResponse `json:"existing_items"`
 }
 
+// --- OCR Image DTOs (matches plan_ocr_engine.md response format) ---
+
+type OCRImageHTTPRequest struct {
+	ImageURL string `json:"image_url" binding:"required,url"`
+	Type     string `json:"type" binding:"omitempty,oneof=printed handwritten auto"`
+	Language string `json:"language" binding:"omitempty,oneof=zh vi en"`
+}
+
+type OCRImageRequest struct {
+	Image    []byte
+	Type     string // "printed" | "handwritten" | "auto"
+	Language string // "zh" | "vi" | "en"
+}
+
+type OCRImageCharacterItem struct {
+	Hanzi      string   `json:"hanzi"`
+	Confidence float64  `json:"confidence"`
+	Candidates []string `json:"candidates,omitempty"`
+}
+
+type OCRImageExistingItem struct {
+	VocabularyListResponse
+	Confidence float64  `json:"confidence"`
+	Candidates []string `json:"candidates,omitempty"`
+}
+
+type OCRImageMetadata struct {
+	EngineUsed       string `json:"engine_used"`
+	TotalDetected    int    `json:"total_detected"`
+	ProcessingTimeMs int64  `json:"processing_time_ms"`
+}
+
+type OCRImageResponse struct {
+	NewItems           []OCRImageCharacterItem  `json:"new_items"`
+	ExistingItems      []OCRImageExistingItem   `json:"existing_items"`
+	LowConfidenceItems []OCRImageCharacterItem  `json:"low_confidence_items"`
+	Metadata           OCRImageMetadata         `json:"metadata"`
+}
+
 // --- Bulk Import DTOs ---
 
 type BulkImportRequest struct {

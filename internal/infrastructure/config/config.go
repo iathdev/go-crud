@@ -12,6 +12,7 @@ type Config struct {
 	ObservabilityConfig  `mapstructure:",squash"`
 	RedisConfig          `mapstructure:",squash"`
 	AuthConfig           `mapstructure:",squash"`
+	OCRConfig            `mapstructure:",squash"`
 }
 
 func LoadConfig() (*Config, error) {

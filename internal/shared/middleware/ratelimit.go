@@ -92,7 +92,7 @@ func RateLimitMiddleware(requestsPerSecond float64, burst int) gin.HandlerFunc {
 		limiter.mu.Unlock()
 
 		if !allowed {
-			logger.WithContext(c.Request.Context()).Warn("rate limit exceeded", zap.String("client_ip", ip))
+			logger.WithContext(c.Request.Context()).Warn("[SERVER] rate limit exceeded", zap.String("client_ip", ip))
 			response.Error(c, 429, "common.too_many_requests")
 			c.Abort()
 			return

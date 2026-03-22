@@ -11,5 +11,7 @@
   "common.invalid_input": "输入无效",
   "common.too_many_requests": "请求过多，请稍后再试",
   "common.deleted_successfully": "删除成功",
-  "common.service_unavailable": "服务暂时不可用，请稍后再试"
+  "common.service_unavailable": "服务暂时不可用，请稍后再试",
+  "common.route_not_found": "路由未找到",
+  "common.method_not_allowed": "请求方法不允许"
 }

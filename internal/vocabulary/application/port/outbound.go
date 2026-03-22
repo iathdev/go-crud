@@ -52,3 +52,39 @@ type GrammarPointRepositoryPort interface {
 	FindByCode(ctx context.Context, code string) (*domain.GrammarPoint, error)
 	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*domain.GrammarPoint, error)
 }
+
+// --- OCR Service Port (matches plan_ocr_engine.md section 3.3) ---
+
+// OCRServicePort — mỗi adapter (PaddleOCR, Google Vision, Baidu) implement interface này.
+// Adapter chỉ biết gọi 1 engine của nó, không biết routing logic.
+type OCRServicePort interface {
+	Recognize(ctx context.Context, req OCRRequest) (*OCRResult, error)
+}
+
+type OCRRequest struct {
+	Image    []byte
+	Language string // "zh" | "vi" | "en"
+}
+
+type OCRResult struct {
+	Characters []OCRCharacter
+	Engine     string // "paddleocr" | "tesseract" | "google_vision" | "baidu_ocr"
+}
+
+type OCRCharacter struct {
+	Text       string
+	Confidence float64
+	Candidates []string
+}
+
+// OCREngineKey xác định engine nào dùng cho combination (type, language).
+type OCREngineKey string
+
+const (
+	OCREnginePaddleOCR    OCREngineKey = "paddleocr"
+	OCREngineGoogleVision OCREngineKey = "google_vision"
+	OCREngineBaiduOCR     OCREngineKey = "baidu_ocr"
+)
+
+// OCREngineRegistry — use case dùng registry này để route theo type + language.
+type OCREngineRegistry map[OCREngineKey]OCRServicePort

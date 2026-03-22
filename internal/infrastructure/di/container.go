@@ -2,10 +2,14 @@ package di
 
 import (
 	"learning-go/internal/auth"
+	"learning-go/internal/infrastructure/circuitbreaker"
 	"learning-go/internal/infrastructure/config"
 	"learning-go/internal/server"
+	sharederror "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	"learning-go/internal/vocabulary"
+	vocabport "learning-go/internal/vocabulary/application/port"
+	vocabservice "learning-go/internal/vocabulary/adapter/service"
 	"strings"
 
 	"go.uber.org/zap"
@@ -32,9 +36,30 @@ func NewApp() (*server.Server, func(), error) {
 		obs.cleanup()
 	}
 
+	// OCR adapter
+	ocrBreaker := circuitbreaker.NewBreaker(circuitbreaker.BreakerConfig{
+		Name: "ocr-service",
+	}, func(err error) bool {
+		if err == nil {
+			return true
+		}
+		if appErr, ok := sharederror.IsAppError(err); ok {
+			return appErr.Code() == sharederror.CodeNotFound
+		}
+		return false
+	})
+	ocrAdapter := vocabservice.NewOCRService(cfg.OCRServiceURL, ocrBreaker)
+
+	ocrEngines := vocabport.OCREngineRegistry{
+		vocabport.OCREnginePaddleOCR: ocrAdapter,
+		// Sau này thêm:
+		// vocabport.OCREngineGoogleVision: googleVisionAdapter,
+		// vocabport.OCREngineBaiduOCR:     baiduAdapter,
+	}
+
 	// Modules
 	authModule := auth.NewModule(pst.db, cfg)
-	vocabularyModule := vocabulary.NewModule(pst.db)
+	vocabularyModule := vocabulary.NewModule(pst.db, ocrEngines)
 
 	// Router & Server
 	router := server.NewRouter(authModule, vocabularyModule, pst.db, cfg)

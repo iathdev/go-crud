@@ -46,7 +46,7 @@ func (useCase *VocabularyCommand) CreateVocabulary(ctx context.Context, req vdto
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("error saving vocabulary", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error saving vocabulary", zap.Error(err))
 		return nil, sharederror.ErrInternal
 	}
 
@@ -61,7 +61,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		return nil, classifyRepoError(ctx, err, "error finding vocabulary")
+		return nil, classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
 	}
 
 	params := domain.VocabularyParams{
@@ -87,7 +87,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		logger.WithContext(ctx).Error("error updating vocabulary", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error updating vocabulary", zap.Error(err))
 		return nil, sharederror.ErrInternal
 	}
 
@@ -98,7 +98,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 			return nil, sharederror.ErrInvalidInput
 		}
 		if err := useCase.vocabRepo.SetTopics(ctx, uuidID, topicUUIDs); err != nil {
-			logger.WithContext(ctx).Error("error setting topics", zap.Error(err))
+			logger.WithContext(ctx).Error("[VOCABULARY] error setting topics", zap.Error(err))
 			return nil, sharederror.ErrInternal
 		}
 	}
@@ -110,7 +110,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 			return nil, sharederror.ErrInvalidInput
 		}
 		if err := useCase.vocabRepo.SetGrammarPoints(ctx, uuidID, gpUUIDs); err != nil {
-			logger.WithContext(ctx).Error("error setting grammar points", zap.Error(err))
+			logger.WithContext(ctx).Error("[VOCABULARY] error setting grammar points", zap.Error(err))
 			return nil, sharederror.ErrInternal
 		}
 	}
@@ -125,14 +125,14 @@ func (useCase *VocabularyCommand) DeleteVocabulary(ctx context.Context, id strin
 	}
 
 	if _, err := useCase.vocabRepo.FindByID(ctx, uuidID); err != nil {
-		return classifyRepoError(ctx, err, "error finding vocabulary")
+		return classifyRepoError(ctx, err, "[VOCABULARY] error finding vocabulary")
 	}
 
 	if err := useCase.vocabRepo.Delete(ctx, uuidID); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		logger.WithContext(ctx).Error("error deleting vocabulary", zap.Error(err))
+		logger.WithContext(ctx).Error("[VOCABULARY] error deleting vocabulary", zap.Error(err))
 		return sharederror.ErrInternal
 	}
 

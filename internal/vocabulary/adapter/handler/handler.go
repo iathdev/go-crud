@@ -2,15 +2,20 @@ package handler
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"learning-go/internal/shared/dto"
 	sharederror "learning-go/internal/shared/error"
+	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 type VocabularyHandler struct {
@@ -192,6 +197,77 @@ func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 	response.Success(c, http.StatusOK, res)
 }
 
+func (handler *VocabularyHandler) ProcessOCRImage(c *gin.Context) {
+	const maxImageSize = 5 << 20 // 5MB
+
+	var httpReq vdto.OCRImageHTTPRequest
+	if err := c.ShouldBindJSON(&httpReq); err != nil {
+		logger.WithContext(c.Request.Context()).Warn("[OCR] invalid request body", zap.Error(err))
+		response.ValidationBadRequest(c, err)
+		return
+	}
+
+	imageBytes, err := downloadImage(httpReq.ImageURL, maxImageSize)
+	if err != nil {
+		logger.WithContext(c.Request.Context()).Warn("[OCR] download image failed",
+			zap.String("image_url", httpReq.ImageURL),
+			zap.Error(err),
+		)
+		response.BadRequest(c, "common.bad_request")
+		return
+	}
+
+	ocrType := httpReq.Type
+	if ocrType == "" {
+		ocrType = "auto"
+	}
+	language := httpReq.Language
+	if language == "" {
+		language = "zh"
+	}
+
+	req := vdto.OCRImageRequest{
+		Image:    imageBytes,
+		Type:     ocrType,
+		Language: language,
+	}
+
+	res, err := handler.ocrCmd.ProcessOCRImage(c.Request.Context(), req)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+	response.Success(c, http.StatusOK, res)
+}
+
+func downloadImage(imageURL string, maxSize int64) ([]byte, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(imageURL)
+	if err != nil {
+		return nil, fmt.Errorf("download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download image: status %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "image/jpeg" && contentType != "image/png" {
+		return nil, fmt.Errorf("unsupported content type: %s", contentType)
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read image: %w", err)
+	}
+	if int64(len(data)) > maxSize {
+		return nil, fmt.Errorf("image exceeds %d bytes", maxSize)
+	}
+
+	return data, nil
+}
+
 // --- Import endpoints ---
 
 func (handler *VocabularyHandler) ImportVocabularies(c *gin.Context) {
@@ -305,15 +381,16 @@ func (handler *VocabularyHandler) ListFolderVocabularies(c *gin.Context) {
 func handleError(c *gin.Context, err error) {
 	var domErr *sharederror.AppError
 	if errors.As(err, &domErr) {
+		msg := domErr.Message()
 		switch domErr.Code() {
 		case sharederror.CodeInvalidInput:
-			response.BadRequest(c, "common.bad_request")
+			response.BadRequest(c, msg)
 		case sharederror.CodeNotFound:
-			response.NotFound(c, "common.not_found")
+			response.NotFound(c, msg)
 		case sharederror.CodeServiceUnavailable:
-			response.ServiceUnavailable(c, "")
+			response.ServiceUnavailable(c, msg)
 		default:
-			response.InternalServerError(c, "")
+			response.InternalServerError(c, msg)
 		}
 		return
 	}

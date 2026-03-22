@@ -19,7 +19,7 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			logger.WithContext(c.Request.Context()).Debug("auth rejected",
+			logger.WithContext(c.Request.Context()).Debug("[AUTH] rejected",
 				zap.String("reason", "missing or invalid authorization header"),
 				zap.String("client_ip", common.ResolveClientIP(c.Request)),
 			)
@@ -38,7 +38,7 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 
 		user, isFirstLogin, err := upsertUser(c, userRepo, prepUser)
 		if err != nil {
-			logger.WithContext(c.Request.Context()).Error("auth middleware upsert failed", zap.Error(err))
+			logger.WithContext(c.Request.Context()).Error("[AUTH] middleware upsert failed", zap.Error(err))
 			response.InternalServerError(c, "")
 			c.Abort()
 			return
@@ -88,13 +88,13 @@ func handleMiddlewareError(c *gin.Context, err error) {
 	if errors.As(err, &appErr) {
 		switch appErr.Code() {
 		case sharederror.CodeSSOTokenInvalid:
-			logger.WithContext(c.Request.Context()).Debug("auth rejected",
+			logger.WithContext(c.Request.Context()).Debug("[AUTH] rejected",
 				zap.String("reason", "invalid prep token"),
 				zap.String("client_ip", common.ResolveClientIP(c.Request)),
 			)
 			response.Unauthorized(c, "auth.unauthorized")
 		case sharederror.CodeSSOServiceError, sharederror.CodeServiceUnavailable:
-			logger.WithContext(c.Request.Context()).Error("prep service unavailable", zap.Error(err))
+			logger.WithContext(c.Request.Context()).Error("[AUTH] prep service unavailable", zap.Error(err))
 			response.ServiceUnavailable(c, "auth.service_unavailable")
 		default:
 			response.InternalServerError(c, "")
