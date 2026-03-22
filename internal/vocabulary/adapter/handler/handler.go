@@ -383,16 +383,27 @@ func handleError(c *gin.Context, err error) {
 	if errors.As(err, &domErr) {
 		msg := domErr.Message()
 		switch domErr.Code() {
-		case sharederror.CodeInvalidInput:
+		case sharederror.CodeBadRequest:
 			response.BadRequest(c, msg)
+		case sharederror.CodeUnauthorized:
+			response.Unauthorized(c, msg)
+		case sharederror.CodeForbidden:
+			response.Forbidden(c, msg)
 		case sharederror.CodeNotFound:
 			response.NotFound(c, msg)
+		case sharederror.CodeConflict:
+			response.Conflict(c, msg)
+		case sharederror.CodeUnprocessableEntity:
+			response.UnprocessableEntity(c, msg)
 		case sharederror.CodeServiceUnavailable:
+			logger.WithContext(c.Request.Context()).Error("[VOCABULARY] "+msg, zap.Error(domErr.Unwrap()))
 			response.ServiceUnavailable(c, msg)
 		default:
+			logger.WithContext(c.Request.Context()).Error("[VOCABULARY] "+msg, zap.Error(domErr.Unwrap()))
 			response.InternalServerError(c, msg)
 		}
 		return
 	}
+	logger.WithContext(c.Request.Context()).Error("[VOCABULARY] unhandled error", zap.Error(err))
 	response.InternalServerError(c, "")
 }

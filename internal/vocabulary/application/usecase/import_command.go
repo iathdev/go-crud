@@ -28,7 +28,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "import.check_existing_failed", err)
+		return nil, sharederror.InternalServerError("import.check_existing_failed", err)
 	}
 
 	existingSet := make(map[string]bool, len(existing))
@@ -73,7 +73,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 			if _, ok := sharederror.IsAppError(err); ok {
 				return nil, err
 			}
-			return nil, sharederror.NewInternal(ctx, "import.save_failed", err)
+			return nil, sharederror.InternalServerError("import.save_failed", err)
 		}
 	}
 

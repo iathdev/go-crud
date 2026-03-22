@@ -66,13 +66,14 @@ func TestBreaker_TripsAfterFailures(t *testing.T) {
 		return "should not execute", nil
 	})
 
-	if !errors.Is(err, sharederror.ErrServiceUnavailable) {
-		t.Fatalf("expected ErrServiceUnavailable, got %v", err)
+	appErr, ok := sharederror.IsAppError(err)
+	if !ok || appErr.Code() != sharederror.CodeServiceUnavailable {
+		t.Fatalf("expected CodeServiceUnavailable, got %v", err)
 	}
 }
 
 func TestBreaker_IsSuccessful_BusinessErrorsDoNotTrip(t *testing.T) {
-	notFoundErr := sharederror.ErrNotFound
+	notFoundErr := sharederror.NotFound("common.not_found")
 
 	b := NewBreaker(BreakerConfig{
 		Name:         "test",
@@ -82,7 +83,11 @@ func TestBreaker_IsSuccessful_BusinessErrorsDoNotTrip(t *testing.T) {
 		FailureRatio: 0.6,
 		MinRequests:  5,
 	}, func(err error) bool {
-		return err == nil || errors.Is(err, sharederror.ErrNotFound)
+		if err == nil {
+			return true
+		}
+		appErr, ok := sharederror.IsAppError(err)
+		return ok && appErr.Code() == sharederror.CodeNotFound
 	})
 
 	// Generate many "not found" errors - these should NOT trip the breaker

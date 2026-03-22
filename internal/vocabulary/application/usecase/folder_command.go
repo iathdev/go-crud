@@ -22,19 +22,19 @@ func NewFolderCommand(folderRepo port.FolderRepositoryPort, vocabRepo port.Vocab
 func (useCase *FolderCommand) CreateFolder(ctx context.Context, userID string, req vdto.CreateFolderRequest) (*vdto.FolderResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, sharederror.NewInvalidInput("folder.invalid_user_id")
+		return nil, sharederror.BadRequest("folder.invalid_user_id")
 	}
 
 	folder, err := domain.NewFolder(uid, req.Name, req.Description)
 	if err != nil {
-		return nil, sharederror.NewInvalidInput("folder.invalid_input")
+		return nil, sharederror.UnprocessableEntity("folder.invalid_input")
 	}
 
 	if err := useCase.folderRepo.Save(ctx, folder); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "folder.save_failed", err)
+		return nil, sharederror.InternalServerError("folder.save_failed", err)
 	}
 
 	return toFolderResponse(folder), nil
@@ -47,14 +47,14 @@ func (useCase *FolderCommand) UpdateFolder(ctx context.Context, id string, userI
 	}
 
 	if err := folder.Update(req.Name, req.Description); err != nil {
-		return nil, sharederror.NewInvalidInput("folder.invalid_input")
+		return nil, sharederror.UnprocessableEntity("folder.invalid_input")
 	}
 
 	if err := useCase.folderRepo.Update(ctx, folder); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "folder.update_failed", err)
+		return nil, sharederror.InternalServerError("folder.update_failed", err)
 	}
 
 	return toFolderResponse(folder), nil
@@ -70,7 +70,7 @@ func (useCase *FolderCommand) DeleteFolder(ctx context.Context, id string, userI
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		return sharederror.NewInternal(ctx, "folder.delete_failed", err)
+		return sharederror.InternalServerError("folder.delete_failed", err)
 	}
 	return nil
 }
@@ -83,21 +83,21 @@ func (useCase *FolderCommand) AddVocabulary(ctx context.Context, folderID string
 
 	vid, err := uuid.Parse(vocabID)
 	if err != nil {
-		return sharederror.NewInvalidInput("vocabulary.invalid_id")
+		return sharederror.BadRequest("vocabulary.invalid_id")
 	}
 
 	if _, err := useCase.vocabRepo.FindByID(ctx, vid); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		return sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
+		return sharederror.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	if err := useCase.folderRepo.AddVocabulary(ctx, folder.ID, vid); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		return sharederror.NewInternal(ctx, "folder.add_vocabulary_failed", err)
+		return sharederror.InternalServerError("folder.add_vocabulary_failed", err)
 	}
 	return nil
 }
@@ -110,14 +110,14 @@ func (useCase *FolderCommand) RemoveVocabulary(ctx context.Context, folderID str
 
 	vid, err := uuid.Parse(vocabID)
 	if err != nil {
-		return sharederror.NewInvalidInput("vocabulary.invalid_id")
+		return sharederror.BadRequest("vocabulary.invalid_id")
 	}
 
 	if err := useCase.folderRepo.RemoveVocabulary(ctx, folder.ID, vid); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		return sharederror.NewInternal(ctx, "folder.remove_vocabulary_failed", err)
+		return sharederror.InternalServerError("folder.remove_vocabulary_failed", err)
 	}
 	return nil
 }

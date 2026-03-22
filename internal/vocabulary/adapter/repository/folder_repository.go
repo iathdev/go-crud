@@ -36,7 +36,7 @@ func (repo *FolderRepository) FindByID(ctx context.Context, id uuid.UUID) (*doma
 	var m model.FolderModel
 	if err := repo.db.WithContext(ctx).First(&m, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NewNotFound("folder.not_found")
+			return nil, sharederror.NotFound("folder.not_found")
 		}
 		return nil, err
 	}

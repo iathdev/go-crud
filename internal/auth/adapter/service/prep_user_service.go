@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"learning-go/internal/auth/application/port"
 	"learning-go/internal/auth/domain"
 	"learning-go/internal/infrastructure/circuitbreaker"
@@ -52,24 +53,25 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 		resp, err := service.client.Do(req)
 		if err != nil {
 			logger.WithContext(ctx).Error("[AUTH] prep user service request failed", zap.Error(err))
-			return nil, sharederror.ErrSSOServiceError
+			return nil, sharederror.ServiceUnavailable("auth.sso_service_error", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusUnauthorized {
-			return nil, sharederror.ErrSSOTokenInvalid
+			return nil, sharederror.Unauthorized("auth.sso_token_invalid")
 		}
 		if resp.StatusCode != http.StatusOK {
+			statusErr := fmt.Errorf("unexpected status: %s", resp.Status)
 			logger.WithContext(ctx).Error("[AUTH] prep user service unexpected status",
 				zap.String("status", resp.Status),
 			)
-			return nil, sharederror.ErrSSOServiceError
+			return nil, sharederror.ServiceUnavailable("auth.sso_service_error", statusErr)
 		}
 
 		var body prepMeResponse
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 			logger.WithContext(ctx).Error("[AUTH] prep user service decode error", zap.Error(err))
-			return nil, sharederror.ErrSSOServiceError
+			return nil, sharederror.ServiceUnavailable("auth.sso_service_error", err)
 		}
 
 		return domain.NewPrepUser(body.Data.ID, body.Data.Email, body.Data.Name), nil

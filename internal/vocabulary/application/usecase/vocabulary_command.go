@@ -44,7 +44,7 @@ func (useCase *VocabularyCommand) CreateVocabulary(ctx context.Context, req vdto
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "vocabulary.save_failed", err)
+		return nil, sharederror.InternalServerError("vocabulary.save_failed", err)
 	}
 
 	return toVocabularyResponse(vocab), nil
@@ -53,7 +53,7 @@ func (useCase *VocabularyCommand) CreateVocabulary(ctx context.Context, req vdto
 func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id string, req vdto.UpdateVocabularyRequest) (*vdto.VocabularyResponse, error) {
 	uuidID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, sharederror.NewInvalidInput("vocabulary.invalid_id")
+		return nil, sharederror.BadRequest("vocabulary.invalid_id")
 	}
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
@@ -61,7 +61,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
+		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	params := domain.VocabularyParams{
@@ -87,20 +87,20 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "vocabulary.update_failed", err)
+		return nil, sharederror.InternalServerError("vocabulary.update_failed", err)
 	}
 
 	// Set topics if provided
 	if req.TopicIDs != nil {
 		topicUUIDs, parseErr := parseUUIDs(req.TopicIDs)
 		if parseErr != nil {
-			return nil, sharederror.NewInvalidInput("vocabulary.invalid_topic_id")
+			return nil, sharederror.BadRequest("vocabulary.invalid_topic_id")
 		}
 		if err := useCase.vocabRepo.SetTopics(ctx, uuidID, topicUUIDs); err != nil {
 			if _, ok := sharederror.IsAppError(err); ok {
 				return nil, err
 			}
-			return nil, sharederror.NewInternal(ctx, "vocabulary.set_topics_failed", err)
+			return nil, sharederror.InternalServerError("vocabulary.set_topics_failed", err)
 		}
 	}
 
@@ -108,13 +108,13 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 	if req.GrammarPointIDs != nil {
 		gpUUIDs, parseErr := parseUUIDs(req.GrammarPointIDs)
 		if parseErr != nil {
-			return nil, sharederror.NewInvalidInput("vocabulary.invalid_grammar_point_id")
+			return nil, sharederror.BadRequest("vocabulary.invalid_grammar_point_id")
 		}
 		if err := useCase.vocabRepo.SetGrammarPoints(ctx, uuidID, gpUUIDs); err != nil {
 			if _, ok := sharederror.IsAppError(err); ok {
 				return nil, err
 			}
-			return nil, sharederror.NewInternal(ctx, "vocabulary.set_grammar_points_failed", err)
+			return nil, sharederror.InternalServerError("vocabulary.set_grammar_points_failed", err)
 		}
 	}
 
@@ -124,21 +124,21 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 func (useCase *VocabularyCommand) DeleteVocabulary(ctx context.Context, id string) error {
 	uuidID, err := uuid.Parse(id)
 	if err != nil {
-		return sharederror.NewInvalidInput("vocabulary.invalid_id")
+		return sharederror.BadRequest("vocabulary.invalid_id")
 	}
 
 	if _, err := useCase.vocabRepo.FindByID(ctx, uuidID); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		return sharederror.NewInternal(ctx, "vocabulary.query_failed", err)
+		return sharederror.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	if err := useCase.vocabRepo.Delete(ctx, uuidID); err != nil {
 		if _, ok := sharederror.IsAppError(err); ok {
 			return err
 		}
-		return sharederror.NewInternal(ctx, "vocabulary.delete_failed", err)
+		return sharederror.InternalServerError("vocabulary.delete_failed", err)
 	}
 
 	return nil
@@ -174,14 +174,14 @@ func parseUUIDs(ids []string) ([]uuid.UUID, error) {
 func mapVocabEntityError(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrHanziRequired):
-		return sharederror.NewInvalidInput("vocabulary.hanzi_required")
+		return sharederror.UnprocessableEntity("vocabulary.hanzi_required")
 	case errors.Is(err, domain.ErrPinyinRequired):
-		return sharederror.NewInvalidInput("vocabulary.pinyin_required")
+		return sharederror.UnprocessableEntity("vocabulary.pinyin_required")
 	case errors.Is(err, domain.ErrMeaningRequired):
-		return sharederror.NewInvalidInput("vocabulary.meaning_required")
+		return sharederror.UnprocessableEntity("vocabulary.meaning_required")
 	case errors.Is(err, domain.ErrInvalidHSKLevel):
-		return sharederror.NewInvalidInput("vocabulary.invalid_hsk_level")
+		return sharederror.UnprocessableEntity("vocabulary.invalid_hsk_level")
 	default:
-		return sharederror.ErrInternal
+		return sharederror.InternalServerError("common.internal_server_error", err)
 	}
 }

@@ -54,7 +54,7 @@ func (breaker *Breaker) Execute(fn func() (any, error)) (any, error) {
 	result, err := breaker.cb.Execute(fn)
 	if err != nil {
 		if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
-			return nil, sharederror.ErrServiceUnavailable
+			return nil, sharederror.ServiceUnavailable("common.service_unavailable", err)
 		}
 		return nil, err
 	}

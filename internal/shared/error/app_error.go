@@ -1,24 +1,20 @@
 package sharederror
 
 import (
-	"context"
 	"errors"
-	"learning-go/internal/shared/logger"
-
-	"go.uber.org/zap"
 )
 
 type Code string
 
 const (
-	CodeNotFound           Code = "NOT_FOUND"
-	CodeInvalidInput       Code = "INVALID_INPUT"
-	CodeEmailAlreadyExists Code = "EMAIL_ALREADY_EXISTS"
-	CodeUnauthorized       Code = "UNAUTHORIZED"
-	CodeInternal           Code = "INTERNAL"
-	CodeServiceUnavailable Code = "SERVICE_UNAVAILABLE"
-	CodeSSOTokenInvalid    Code = "SSO_TOKEN_INVALID"
-	CodeSSOServiceError    Code = "SSO_SERVICE_ERROR"
+	CodeBadRequest          Code = "BAD_REQUEST"           // 400
+	CodeUnauthorized        Code = "UNAUTHORIZED"          // 401
+	CodeForbidden           Code = "FORBIDDEN"             // 403
+	CodeNotFound            Code = "NOT_FOUND"             // 404
+	CodeConflict            Code = "CONFLICT"              // 409
+	CodeUnprocessableEntity Code = "UNPROCESSABLE_ENTITY"  // 422
+	CodeInternalServerError Code = "INTERNAL_SERVER_ERROR" // 500
+	CodeServiceUnavailable  Code = "SERVICE_UNAVAILABLE"   // 503
 )
 
 type AppError struct {
@@ -28,10 +24,7 @@ type AppError struct {
 }
 
 func (appErr *AppError) Error() string {
-	if appErr.cause != nil {
-		return appErr.message + ": " + appErr.cause.Error()
-	}
-	return appErr.message
+	return string(appErr.code) + ": " + appErr.message
 }
 
 func (appErr *AppError) Code() Code      { return appErr.code }
@@ -46,36 +39,39 @@ func (appErr *AppError) Is(target error) bool {
 	return false
 }
 
-var (
-	ErrNotFound           = &AppError{code: CodeNotFound, message: "common.not_found"}
-	ErrInvalidInput       = &AppError{code: CodeInvalidInput, message: "common.invalid_input"}
-	ErrEmailAlreadyExists = &AppError{code: CodeEmailAlreadyExists, message: "common.conflict"}
-	ErrUnauthorized       = &AppError{code: CodeUnauthorized, message: "common.unauthorized"}
-	ErrInternal           = &AppError{code: CodeInternal, message: "common.internal_server_error"}
-	ErrServiceUnavailable = &AppError{code: CodeServiceUnavailable, message: "common.service_unavailable"}
-	ErrSSOTokenInvalid    = &AppError{code: CodeSSOTokenInvalid, message: "auth.unauthorized"}
-	ErrSSOServiceError    = &AppError{code: CodeSSOServiceError, message: "auth.service_unavailable"}
-)
+// --- Client errors (4xx): no cause, no logging needed ---
 
-func NewNotFound(message string) *AppError {
-	return &AppError{code: CodeNotFound, message: message}
+func BadRequest(message string) *AppError {
+	return &AppError{code: CodeBadRequest, message: message}
 }
 
-func NewInvalidInput(message string) *AppError {
-	return &AppError{code: CodeInvalidInput, message: message}
-}
-
-func NewUnauthorized(message string) *AppError {
+func Unauthorized(message string) *AppError {
 	return &AppError{code: CodeUnauthorized, message: message}
 }
 
-func NewInternal(ctx context.Context, message string, cause error) *AppError {
-	logger.WithContext(ctx).Error(message, zap.Error(cause))
-	return &AppError{code: CodeInternal, message: message, cause: cause}
+func Forbidden(message string) *AppError {
+	return &AppError{code: CodeForbidden, message: message}
 }
 
-func NewServiceUnavailable(ctx context.Context, message string, cause error) *AppError {
-	logger.WithContext(ctx).Error(message, zap.Error(cause))
+func NotFound(message string) *AppError {
+	return &AppError{code: CodeNotFound, message: message}
+}
+
+func Conflict(message string) *AppError {
+	return &AppError{code: CodeConflict, message: message}
+}
+
+func UnprocessableEntity(message string) *AppError {
+	return &AppError{code: CodeUnprocessableEntity, message: message}
+}
+
+// --- Server errors (5xx): carry cause for handler-layer logging ---
+
+func InternalServerError(message string, cause error) *AppError {
+	return &AppError{code: CodeInternalServerError, message: message, cause: cause}
+}
+
+func ServiceUnavailable(message string, cause error) *AppError {
 	return &AppError{code: CodeServiceUnavailable, message: message, cause: cause}
 }
 
