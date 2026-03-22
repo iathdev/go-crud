@@ -87,15 +87,15 @@ func handleMiddlewareError(c *gin.Context, err error) {
 	var appErr *sharederror.AppError
 	if errors.As(err, &appErr) {
 		switch appErr.Code() {
-		case sharederror.CodeSSOTokenInvalid:
-			logger.WithContext(c.Request.Context()).Debug("auth rejected",
-				zap.String("reason", "invalid prep token"),
+		case sharederror.CodeUnauthorized:
+			logger.WithContext(c.Request.Context()).Debug("[AUTH] auth rejected",
+				zap.String("reason", appErr.Message()),
 				zap.String("client_ip", common.ResolveClientIP(c.Request)),
 			)
-			response.Unauthorized(c, "auth.unauthorized")
-		case sharederror.CodeSSOServiceError, sharederror.CodeServiceUnavailable:
-			logger.WithContext(c.Request.Context()).Error("prep service unavailable", zap.Error(err))
-			response.ServiceUnavailable(c, "auth.service_unavailable")
+			response.Unauthorized(c, appErr.Message())
+		case sharederror.CodeServiceUnavailable:
+			logger.WithContext(c.Request.Context()).Error("[AUTH] "+appErr.Message(), zap.Error(appErr.Unwrap()))
+			response.ServiceUnavailable(c, appErr.Message())
 		default:
 			response.InternalServerError(c, "")
 		}

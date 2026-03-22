@@ -37,7 +37,7 @@ func (repo *TopicRepository) FindBySlug(ctx context.Context, slug string) (*doma
 	var m model.TopicModel
 	if err := repo.db.WithContext(ctx).First(&m, "slug = ?", slug).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NewNotFound("topic.not_found")
+			return nil, sharederror.NotFound("topic.not_found")
 		}
 		return nil, err
 	}

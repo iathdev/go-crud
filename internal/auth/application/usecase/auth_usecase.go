@@ -20,10 +20,10 @@ func NewAuthUseCase(userRepo port.UserRepositoryPort) port.AuthUseCasePort {
 func (uc *AuthUseCase) GetMe(ctx context.Context, userID uuid.UUID, isFirstLogin bool) (*dto.MeResponse, error) {
 	user, err := uc.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, sharederror.NewInternal(ctx, "auth.find_user_failed", err)
+		return nil, sharederror.InternalServerError("auth.find_user_failed", err)
 	}
 	if user == nil {
-		return nil, sharederror.NewNotFound("auth.user_not_found")
+		return nil, sharederror.NotFound("auth.user_not_found")
 	}
 
 	return &dto.MeResponse{

@@ -36,7 +36,7 @@ func (repo *VocabularyRepository) FindByID(ctx context.Context, id uuid.UUID) (*
 	var m model.VocabularyModel
 	if err := repo.db.WithContext(ctx).First(&m, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NewNotFound("vocabulary.not_found")
+			return nil, sharederror.NotFound("vocabulary.not_found")
 		}
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (repo *VocabularyRepository) FindByHanzi(ctx context.Context, hanzi string)
 	var m model.VocabularyModel
 	if err := repo.db.WithContext(ctx).Where("hanzi = ?", hanzi).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NewNotFound("vocabulary.not_found")
+			return nil, sharederror.NotFound("vocabulary.not_found")
 		}
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func classifyWriteError(err error, fkViolationKey string) error {
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-		return sharederror.NewInvalidInput(fkViolationKey)
+		return sharederror.BadRequest(fkViolationKey)
 	}
 	return err
 }

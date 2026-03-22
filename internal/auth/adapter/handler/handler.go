@@ -4,11 +4,13 @@ import (
 	"errors"
 	"learning-go/internal/auth/application/port"
 	sharederror "learning-go/internal/shared/error"
+	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
@@ -51,17 +53,27 @@ func handleAuthError(c *gin.Context, err error) {
 	if errors.As(err, &domErr) {
 		msg := domErr.Message()
 		switch domErr.Code() {
-		case sharederror.CodeNotFound:
-			response.NotFound(c, msg)
+		case sharederror.CodeBadRequest:
+			response.BadRequest(c, msg)
 		case sharederror.CodeUnauthorized:
 			response.Unauthorized(c, msg)
+		case sharederror.CodeForbidden:
+			response.Forbidden(c, msg)
+		case sharederror.CodeNotFound:
+			response.NotFound(c, msg)
+		case sharederror.CodeConflict:
+			response.Conflict(c, msg)
+		case sharederror.CodeUnprocessableEntity:
+			response.UnprocessableEntity(c, msg)
 		case sharederror.CodeServiceUnavailable:
+			logger.WithContext(c.Request.Context()).Error("[AUTH] "+msg, zap.Error(domErr.Unwrap()))
 			response.ServiceUnavailable(c, msg)
 		default:
+			logger.WithContext(c.Request.Context()).Error("[AUTH] "+msg, zap.Error(domErr.Unwrap()))
 			response.InternalServerError(c, msg)
 		}
 		return
 	}
-
+	logger.WithContext(c.Request.Context()).Error("[AUTH] unhandled error", zap.Error(err))
 	response.InternalServerError(c, "")
 }

@@ -27,7 +27,7 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "ocr.find_existing_failed", err)
+		return nil, sharederror.InternalServerError("ocr.find_existing_failed", err)
 	}
 
 	existingMap := make(map[string]*domain.Vocabulary, len(existing))

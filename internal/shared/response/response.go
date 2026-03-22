@@ -163,6 +163,14 @@ func ServiceUnavailable(c *gin.Context, message string, err ...interface{}) {
 	Error(c, http.StatusServiceUnavailable, msg, err...)
 }
 
+func UnprocessableEntity(c *gin.Context, message string, err ...interface{}) {
+	msg := message
+	if msg == "" {
+		msg = "common.validation_failed"
+	}
+	Error(c, http.StatusUnprocessableEntity, msg, err...)
+}
+
 func InternalServerError(c *gin.Context, message string, err ...interface{}) {
 	msg := message
 	if msg == "" {

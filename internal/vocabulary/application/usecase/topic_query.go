@@ -21,7 +21,7 @@ func (useCase *TopicQuery) ListTopics(ctx context.Context) ([]*vdto.TopicRespons
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewInternal(ctx, "topic.query_failed", err)
+		return nil, sharederror.InternalServerError("topic.query_failed", err)
 	}
 
 	result := make([]*vdto.TopicResponse, 0, len(topics))
