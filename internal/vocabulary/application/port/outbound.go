@@ -73,6 +73,7 @@ type OCRResult struct {
 
 type OCRCharacter struct {
 	Text       string
+	Pinyin     string
 	Confidence float64
 	Candidates []string
 }

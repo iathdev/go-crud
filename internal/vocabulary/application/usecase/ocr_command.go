@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	sharederror "learning-go/internal/shared/error"
-	"learning-go/internal/shared/logger"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
@@ -106,8 +105,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 
 	engine, _ := useCase.resolveEngine(req.Type, req.Language)
 	if engine == nil {
-		logger.WithContext(ctx).Error("[OCR] no engine available")
-		return nil, sharederror.ErrServiceUnavailable
+		return nil, sharederror.ServiceUnavailable("ocr.no_engine_available", nil)
 	}
 
 	ocrResult, err := engine.Recognize(ctx, port.OCRRequest{
@@ -118,7 +116,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 		if _, ok := sharederror.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.NewServiceUnavailable(ctx, "ocr.recognize_failed", err)
+		return nil, sharederror.ServiceUnavailable("ocr.recognize_failed", err)
 	}
 
 	totalDetected := len(ocrResult.Characters)
@@ -131,6 +129,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 		if ch.Confidence < ocrConfidenceLowThreshold {
 			lowConfidenceItems = append(lowConfidenceItems, vdto.OCRImageCharacterItem{
 				Hanzi:      ch.Text,
+				Pinyin:     ch.Pinyin,
 				Confidence: ch.Confidence,
 				Candidates: ch.Candidates,
 			})
@@ -152,7 +151,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 			if _, ok := sharederror.IsAppError(err); ok {
 				return nil, err
 			}
-			return nil, sharederror.NewInternal(ctx, "ocr.find_existing_failed", err)
+			return nil, sharederror.InternalServerError("ocr.find_existing_failed", err)
 		}
 		existingMap = make(map[string]*domain.Vocabulary, len(existing))
 		for _, v := range existing {
@@ -173,6 +172,7 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 		} else {
 			newItems = append(newItems, vdto.OCRImageCharacterItem{
 				Hanzi:      ch.Text,
+				Pinyin:     ch.Pinyin,
 				Confidence: ch.Confidence,
 				Candidates: ch.Candidates,
 			})

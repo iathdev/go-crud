@@ -128,6 +128,7 @@ type OCRImageRequest struct {
 
 type OCRImageCharacterItem struct {
 	Hanzi      string   `json:"hanzi"`
+	Pinyin     string   `json:"pinyin"`
 	Confidence float64  `json:"confidence"`
 	Candidates []string `json:"candidates,omitempty"`
 }

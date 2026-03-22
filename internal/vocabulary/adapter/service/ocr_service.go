@@ -9,12 +9,9 @@ import (
 	"io"
 	"learning-go/internal/infrastructure/circuitbreaker"
 	sharederror "learning-go/internal/shared/error"
-	"learning-go/internal/shared/logger"
 	"learning-go/internal/vocabulary/application/port"
 	"net/http"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 type OCRService struct {
@@ -35,6 +32,7 @@ type ocrServiceResponse struct {
 
 type ocrServiceCharacter struct {
 	Text       string   `json:"text"`
+	Pinyin     string   `json:"pinyin"`
 	Confidence float64  `json:"confidence"`
 	Candidates []string `json:"candidates"`
 }
@@ -61,41 +59,37 @@ func (svc *OCRService) Recognize(ctx context.Context, req port.OCRRequest) (*por
 
 		body, err := json.Marshal(payload)
 		if err != nil {
-			return nil, fmt.Errorf("marshal request: %w", err)
+			return nil, sharederror.InternalServerError("ocr.service_unavailable", err)
 		}
 
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, svc.baseURL+"/recognize", bytes.NewReader(body))
 		if err != nil {
-			return nil, fmt.Errorf("create request: %w", err)
+			return nil, sharederror.InternalServerError("ocr.service_unavailable", err)
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
 
 		resp, err := svc.client.Do(httpReq)
 		if err != nil {
-			logger.WithContext(ctx).Error("[OCR] service request failed", zap.Error(err))
-			return nil, sharederror.ErrServiceUnavailable
+			return nil, sharederror.ServiceUnavailable("ocr.service_unavailable", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			respBody, _ := io.ReadAll(resp.Body)
-			logger.WithContext(ctx).Error("[OCR] service unexpected status",
-				zap.String("status", resp.Status),
-				zap.String("body", string(respBody)),
-			)
-			return nil, sharederror.ErrServiceUnavailable
+			statusErr := fmt.Errorf("unexpected status %s: %s", resp.Status, string(respBody))
+			return nil, sharederror.ServiceUnavailable("ocr.service_unavailable", statusErr)
 		}
 
 		var ocrResp ocrServiceResponse
 		if err := json.NewDecoder(resp.Body).Decode(&ocrResp); err != nil {
-			logger.WithContext(ctx).Error("[OCR] service decode error", zap.Error(err))
-			return nil, sharederror.ErrInternal
+			return nil, sharederror.ServiceUnavailable("ocr.service_unavailable", err)
 		}
 
 		characters := make([]port.OCRCharacter, 0, len(ocrResp.Characters))
 		for _, ch := range ocrResp.Characters {
 			characters = append(characters, port.OCRCharacter{
 				Text:       ch.Text,
+				Pinyin:     ch.Pinyin,
 				Confidence: ch.Confidence,
 				Candidates: ch.Candidates,
 			})

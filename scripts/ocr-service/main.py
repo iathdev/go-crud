@@ -18,6 +18,7 @@ import tempfile
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
 import jieba
+from pypinyin import pinyin, Style
 from fastapi import FastAPI, HTTPException
 from paddleocr import PaddleOCR
 from pydantic import BaseModel
@@ -57,6 +58,11 @@ def _segment_chinese(text: str) -> list[str]:
     return result
 
 
+def _to_pinyin(text: str) -> str:
+    """Convert Chinese text to space-separated pinyin with tone marks."""
+    return " ".join(syllable[0] for syllable in pinyin(text, style=Style.TONE))
+
+
 def _extract_paddleocr(image_path: str, language: str) -> list[dict]:
     engine = _get_paddle_engine(language)
     results = engine.predict(image_path)
@@ -76,12 +82,12 @@ def _extract_paddleocr(image_path: str, language: str) -> list[dict]:
                 for word in words:
                     if word not in seen:
                         seen.add(word)
-                        characters.append({"text": word, "confidence": round(confidence, 4), "candidates": []})
+                        characters.append({"text": word, "pinyin": _to_pinyin(word), "confidence": round(confidence, 4), "candidates": []})
             else:
                 text = text.strip()
                 if text and text not in seen:
                     seen.add(text)
-                    characters.append({"text": text, "confidence": round(confidence, 4), "candidates": []})
+                    characters.append({"text": text, "pinyin": "", "confidence": round(confidence, 4), "candidates": []})
 
     return characters
 
@@ -119,11 +125,11 @@ def _extract_tesseract(image_path: str, language: str) -> list[dict]:
             for word in words:
                 if word not in seen:
                     seen.add(word)
-                    characters.append({"text": word, "confidence": round(confidence, 4), "candidates": []})
+                    characters.append({"text": word, "pinyin": _to_pinyin(word), "confidence": round(confidence, 4), "candidates": []})
         else:
             if text not in seen:
                 seen.add(text)
-                characters.append({"text": text, "confidence": round(confidence, 4), "candidates": []})
+                characters.append({"text": text, "pinyin": "", "confidence": round(confidence, 4), "candidates": []})
 
     return characters
 
