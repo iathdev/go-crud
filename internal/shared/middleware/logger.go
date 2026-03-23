@@ -59,6 +59,7 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 			zap.Duration("latency", latency),
 			zap.String("client_ip", common.ResolveClientIP(c.Request)),
 		}
+
 		if requestBody != "" {
 			fields = append(fields, zap.String("body", requestBody))
 		}

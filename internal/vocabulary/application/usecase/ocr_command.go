@@ -2,16 +2,23 @@ package usecase
 
 import (
 	"context"
+	"strings"
+	"time"
+
+	"github.com/mozillazg/go-pinyin"
+	"go.uber.org/zap"
+
 	apperr "learning-go/internal/shared/error"
+	"learning-go/internal/shared/logger"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
-	"time"
 )
 
 const (
 	ocrConfidenceConfirmed    = 0.80
 	ocrConfidenceLowThreshold = 0.70
+	ocrCascadingThreshold     = 0.75 // auto mode: cascade to secondary engine if avg confidence < 75%
 )
 
 type OCRCommand struct {
@@ -27,31 +34,46 @@ func NewOCRCommand(vocabRepo port.VocabularyRepositoryPort, engines port.OCREngi
 //
 // Routing rules:
 //
-//	printed (any lang)        → google_vision
-//	handwritten + zh          → baidu_ocr
-//	handwritten + other       → google_vision
-//	auto                      → google_vision (primary)
+//	printed (any lang)             → google_vision (no fallback)
+//	handwritten + zh               → baidu_ocr → fallback google_vision
+//	handwritten + other            → google_vision (no fallback)
+//	auto                           → google_vision (cascading handled in ProcessOCRScan)
 //
-// Fallback: nếu engine được chọn không có trong registry → dùng engine đầu tiên có sẵn.
+// Returns (engine, key) or (nil, "") if no engine available.
 func (useCase *OCRCommand) resolveEngine(ocrType, language string) (port.OCRServicePort, port.OCREngineKey) {
-	preferred := port.OCREngineGoogleVision
-
 	switch ocrType {
+	case "printed":
+		return useCase.getEngine(port.OCREngineGoogleVision)
+
 	case "handwritten":
 		if language == "zh" {
-			preferred = port.OCREngineBaiduOCR
+			// Baidu primary → PaddleOCR fallback → Google Vision fallback
+			return useCase.getFirstAvailable(
+				port.OCREngineBaiduOCR,
+				port.OCREnginePaddleOCR,
+				port.OCREngineGoogleVision,
+			)
 		}
-	}
+		return useCase.getEngine(port.OCREngineGoogleVision)
 
-	if engine, ok := useCase.engines[preferred]; ok {
-		return engine, preferred
+	default: // "auto"
+		return useCase.getEngine(port.OCREngineGoogleVision)
 	}
+}
 
-	// Fallback: dùng engine nào có sẵn
-	for key, engine := range useCase.engines {
+func (useCase *OCRCommand) getEngine(key port.OCREngineKey) (port.OCRServicePort, port.OCREngineKey) {
+	if engine, ok := useCase.engines[key]; ok {
 		return engine, key
 	}
+	return nil, ""
+}
 
+func (useCase *OCRCommand) getFirstAvailable(keys ...port.OCREngineKey) (port.OCRServicePort, port.OCREngineKey) {
+	for _, key := range keys {
+		if engine, ok := useCase.engines[key]; ok {
+			return engine, key
+		}
+	}
 	return nil, ""
 }
 
@@ -63,15 +85,27 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 		return nil, apperr.ServiceUnavailable("ocr.no_engine_available", nil)
 	}
 
-	ocrResult, err := engine.Recognize(ctx, port.OCRRequest{
-		Image:    req.Image,
-		Language: req.Language,
-	})
+	ocrReq := port.OCRRequest{Image: req.Image, Language: req.Language}
+
+	ocrResult, err := engine.Recognize(ctx, ocrReq)
 	if err != nil {
 		if _, ok := apperr.IsAppError(err); ok {
 			return nil, err
 		}
 		return nil, apperr.ServiceUnavailable("ocr.recognize_failed", err)
+	}
+
+	// Enrich pinyin for characters that don't have it (e.g., Google Vision)
+	if req.Language == "zh" {
+		logger.WithContext(ctx).Info("[OCR] enriching pinyin",
+			zap.Int("characters_count", len(ocrResult.Characters)),
+			zap.String("engine", ocrResult.Engine),
+		)
+		for i := range ocrResult.Characters {
+			if ocrResult.Characters[i].Pinyin == "" {
+				ocrResult.Characters[i].Pinyin = convertToPinyin(ocrResult.Characters[i].Text)
+			}
+		}
 	}
 
 	totalDetected := len(ocrResult.Characters)
@@ -154,6 +188,34 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 			ProcessingTimeMs: time.Since(start).Milliseconds(),
 		},
 	}, nil
+}
+
+func avgConfidence(chars []port.OCRCharacter) float64 {
+	if len(chars) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, ch := range chars {
+		sum += ch.Confidence
+	}
+	return sum / float64(len(chars))
+}
+
+var pinyinArgs = func() pinyin.Args {
+	a := pinyin.NewArgs()
+	a.Style = pinyin.Tone
+	return a
+}()
+
+func convertToPinyin(hanzi string) string {
+	result := pinyin.Pinyin(hanzi, pinyinArgs)
+	parts := make([]string, 0, len(result))
+	for _, r := range result {
+		if len(r) > 0 {
+			parts = append(parts, r[0])
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func toVocabularyListResponse(v *domain.Vocabulary) vdto.VocabularyListResponse {

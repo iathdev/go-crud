@@ -41,8 +41,9 @@
 
 | Factor | Google Cloud Vision | Baidu OCR API | PaddleOCR (self-hosted) | Tesseract |
 |---|---|---|---|---|
-| **Printed Chinese** | Cao | Rất cao | Rất cao (cùng model PP-OCRv5) | Trung bình |
-| **Handwritten Chinese** | Trung bình | **Tốt nhất** (PP-OCRv5 vượt GPT-4o) | **Tốt nhất** (cùng model) | Rất kém — gần như không dùng được |
+| **Printed Chinese (recognition)** | Cao | Rất cao | Rất cao (cùng model PP-OCRv5) | Trung bình |
+| **Handwritten Chinese (recognition)** | Trung bình | **Tốt nhất** (PP-OCRv5 vượt GPT-4o) | **Tốt nhất** (cùng model) | Rất kém — gần như không dùng được |
+| **Confidence granularity** | **Per-symbol** (per-character native) | **Per-character** (cần `recognize_granularity=small`) | **Per-line only** — không hỗ trợ per-character | Per-word |
 | **Pricing** | $1.50/1K req (free 1K/tháng) | ~5K free/tháng, packages tính CNY | Free (open-source) | Free (open-source) |
 | **Go SDK** | Official (first-party) | Không có — community only | Không — Python ecosystem, cần sidecar service | cgo wrapper (gosseract) |
 | **Docs** | English | Tiếng Trung | English + Tiếng Trung | English |
@@ -51,6 +52,10 @@
 | **Latency từ VN** | ~500ms-1.5s | ~300ms-1s | Local (100ms-2s) | Local (100ms-2s) |
 | **Ops overhead** | Không — managed service | Không — managed service | Cao — cần deploy, scale, monitor Python service | Trung bình — cần install C++ libs |
 | **Fine-tune** | Không | Không | Có thể fine-tune trên PaddlePaddle framework | Hàng tuần, effort cực lớn, kết quả không chắc |
+
+> **⚠️ Accuracy ≠ Phù hợp cho bài toán project.** Bảng trên đánh giá **text recognition** (đọc đúng chữ). Bài toán project cần thêm **per-character classification** (phân loại từng chữ: confirmed / low_confidence) để tạo flashcard. PaddleOCR recognition accuracy "Rất cao" nhưng thiếu per-character confidence → classify sai. Ví dụ: line "你好鑫" score 0.75 → cả 3 character đều nhận 0.75 → nhưng thực tế "你好" ~0.95, "鑫" ~0.50. Google Vision / Baidu trả per-character confidence → classify chính xác hơn. **Kết luận: PaddleOCR chỉ phù hợp dev/evaluate, production phải dùng cloud APIs.**
+>
+> **PaddleOCR confidence limitation**: PaddleOCR chỉ trả confidence per text line (recognition score của cả dòng). Khi segment thành nhiều words/characters, mỗi word nhận cùng confidence của line — không phản ánh độ chính xác per-character. Không có workaround khả thi qua API hiện tại (cắt ảnh từng character rồi recognize riêng chậm gấp N lần). Google Vision hỗ trợ per-symbol confidence native. Baidu OCR API cùng model PP-OCRv5 với PaddleOCR nhưng thêm server-side post-processing layer — khi set `recognize_granularity=small`, cloud service tách line result thành per-character confidence (value-add của cloud, không phải feature model gốc). Đây là lý do chính để dùng cloud APIs cho production.
 
 > **PaddleOCR vs Baidu OCR API:** Cùng gốc Baidu, cùng model PP-OCRv5, accuracy tương đương. Khác biệt: PaddleOCR là open-source self-hosted (free, không lo data privacy) còn Baidu OCR API là cloud service (data gửi sang server TQ, trả phí). Trade-off của PaddleOCR: Python ecosystem → cần chạy như sidecar service (gRPC/HTTP) bên cạnh Go backend + tự chịu ops.
 

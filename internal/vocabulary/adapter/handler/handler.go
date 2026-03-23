@@ -220,6 +220,13 @@ func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 		response.HandleError(c, err)
 		return
 	}
+	logger.WithContext(c.Request.Context()).Info("[OCR] scan completed",
+		zap.Int("new_items", len(res.NewItems)),
+		zap.Int("existing_items", len(res.ExistingItems)),
+		zap.Int("low_confidence_items", len(res.LowConfidenceItems)),
+		zap.String("engine", res.Metadata.EngineUsed),
+		zap.Int64("processing_ms", res.Metadata.ProcessingTimeMs),
+	)
 	response.Success(c, http.StatusOK, res)
 }
 

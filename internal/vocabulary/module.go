@@ -1,10 +1,12 @@
 package vocabulary
 
 import (
+	"learning-go/internal/shared/middleware"
 	"learning-go/internal/vocabulary/adapter/handler"
 	"learning-go/internal/vocabulary/adapter/repository"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/application/usecase"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -48,7 +50,7 @@ func (module *Module) RegisterRoutes(public, protected *gin.RouterGroup) {
 	protected.DELETE("/vocabularies/:id", module.handler.DeleteVocabulary)
 
 	// OCR
-	public.POST("/vocabularies/ocr-scan", module.handler.ProcessOCRScan)
+	public.POST("/vocabularies/ocr-scan", middleware.TimeoutMiddleware(60*time.Second), module.handler.ProcessOCRScan)
 
 	// Admin import
 	protected.POST("/admin/vocabularies/import", module.handler.ImportVocabularies)

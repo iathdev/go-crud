@@ -84,12 +84,14 @@ Baidu có nhiều endpoint, confidence trả khác nhau:
 
 ### 2.3 So sánh
 
-| | Google Cloud Vision | Baidu OCR |
-|---|---|---|
-| **Range** | 0.0 - 1.0 (float) | 0.0 - 1.0 (float) |
-| **Per-character** | Có (native, Symbol level) | Có (cần `recognize_granularity=small`) |
-| **Cần normalize range?** | Không | Không |
-| **Scores có comparable không?** | **Không.** Model khác nhau, training data khác nhau, calibration khác nhau. Google 0.85 ≠ Baidu 0.85 |
+| | Google Cloud Vision | Baidu OCR | PaddleOCR |
+|---|---|---|---|
+| **Range** | 0.0 - 1.0 (float) | 0.0 - 1.0 (float) | 0.0 - 1.0 (float) |
+| **Per-character** | Có (native, Symbol level) | Có (cần `recognize_granularity=small`) | **Không — chỉ per-line** |
+| **Cần normalize range?** | Không | Không | Không |
+| **Scores có comparable không?** | **Không.** Model khác nhau, training data khác nhau, calibration khác nhau. Google 0.85 ≠ Baidu 0.85 ≠ PaddleOCR 0.85 |
+
+> **Lưu ý PaddleOCR confidence**: PaddleOCR chỉ trả confidence per text line (recognition score). Khi jieba segment 1 line thành nhiều words, mỗi word nhận cùng confidence của cả line — không phản ánh độ chính xác per-character. Không có cách nào lấy per-character confidence qua PaddleOCR API hiện tại (cắt ảnh từng character rồi recognize riêng thì chậm gấp N lần, không thực tế). Đây là lý do chính để dùng Google Vision / Baidu cho production — per-symbol confidence chính xác hơn cho việc classify confirmed vs low_confidence.
 
 ### 2.4 Calibration — Tại sao không thể so sánh trực tiếp
 

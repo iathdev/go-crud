@@ -52,9 +52,35 @@ func NewApp() (*server.Server, func(), error) {
 
 	ocrEngines := vocabport.OCREngineRegistry{
 		vocabport.OCREnginePaddleOCR: ocrAdapter,
-		// Sau này thêm:
-		// vocabport.OCREngineGoogleVision: googleVisionAdapter,
-		// vocabport.OCREngineBaiduOCR:     baiduAdapter,
+	}
+
+	// Google Vision adapter (chỉ tạo nếu có credentials)
+	if cfg.GoogleApplicationCredentials != "" {
+		gvBreaker := circuitbreaker.NewBreaker(circuitbreaker.BreakerConfig{
+			Name: "google-vision",
+		}, func(err error) bool {
+			if err == nil {
+				return true
+			}
+			if appErr, ok := sharederror.IsAppError(err); ok {
+				return appErr.Code() == sharederror.CodeNotFound
+			}
+			return false
+		})
+
+		gvAdapter, gvCleanup, err := vocabservice.NewGoogleVisionService(
+			cfg.GoogleApplicationCredentials, gvBreaker,
+		)
+		if err != nil {
+			logger.Warn("[DI] Google Vision adapter init failed, skipping", zap.Error(err))
+		} else {
+			ocrEngines[vocabport.OCREngineGoogleVision] = gvAdapter
+			prevCleanup := cleanup
+			cleanup = func() {
+				gvCleanup()
+				prevCleanup()
+			}
+		}
 	}
 
 	// Modules
