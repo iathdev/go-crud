@@ -60,19 +60,10 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 			zap.String("client_ip", common.ResolveClientIP(c.Request)),
 		}
 
-		switch {
-		case status >= 500:
-			log.Error("[SERVER] http_request", fields...)
-		default:
-			log.Info("[SERVER] http_request", fields...)
+		if requestBody != "" {
+			fields = append(fields, zap.String("body", requestBody))
 		}
 
-		// Request body logged separately at Debug level only
-		if requestBody != "" {
-			log.Debug("[SERVER] http_request_body",
-				zap.String("path", c.Request.URL.Path),
-				zap.String("body", requestBody),
-			)
-		}
+		log.Info("[SERVER] http_request", fields...)
 	}
 }
