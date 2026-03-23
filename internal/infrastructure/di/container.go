@@ -83,6 +83,27 @@ func NewApp() (*server.Server, func(), error) {
 		}
 	}
 
+	// Baidu OCR adapter (chỉ tạo nếu có credentials)
+	if cfg.BaiduOCRAPIKey != "" && cfg.BaiduOCRSecretKey != "" {
+		baiduBreaker := circuitbreaker.NewBreaker(circuitbreaker.BreakerConfig{
+			Name: "baidu-ocr",
+		}, func(err error) bool {
+			if err == nil {
+				return true
+			}
+			if appErr, ok := sharederror.IsAppError(err); ok {
+				return appErr.Code() == sharederror.CodeNotFound
+			}
+			return false
+		})
+
+		baiduAdapter := vocabservice.NewBaiduOCRService(
+			cfg.BaiduOCRAPIKey, cfg.BaiduOCRSecretKey,
+			baiduBreaker, pst.redisClient,
+		)
+		ocrEngines[vocabport.OCREngineBaiduOCR] = baiduAdapter
+	}
+
 	// Modules
 	authModule := auth.NewModule(pst.db, cfg)
 	vocabularyModule := vocabulary.NewModule(pst.db, ocrEngines)
