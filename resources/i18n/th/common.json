@@ -12,6 +12,13 @@
   "common.too_many_requests": "คำขอมากเกินไป กรุณาลองใหม่ภายหลัง",
   "common.deleted_successfully": "ลบเรียบร้อยแล้ว",
   "common.service_unavailable": "บริการไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง",
-  "common.route_not_found": "ไม่พบเส้นทาง",
-  "common.method_not_allowed": "วิธีการไม่ได้รับอนุญาต"
+  "common.route_not_found": "ไม่พบเส้นทางที่ร้องขอ",
+  "common.method_not_allowed": "วิธีการไม่ได้รับอนุญาต",
+  "ocr.image_download_failed": "ไม่สามารถดาวน์โหลดรูปภาพ กรุณาตรวจสอบ URL และให้แน่ใจว่าเป็นไฟล์ JPEG หรือ PNG ขนาดไม่เกิน 5MB",
+  "ocr.service_connection_failed": "บริการ OCR ไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง",
+  "ocr.service_error": "บริการ OCR เกิดข้อผิดพลาด กรุณาลองใหม่ภายหลัง",
+  "ocr.service_invalid_response": "บริการ OCR ส่งข้อมูลไม่ถูกต้อง กรุณาลองใหม่ภายหลัง",
+  "auth.sso_connection_failed": "บริการยืนยันตัวตนไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง",
+  "auth.sso_service_error": "บริการยืนยันตัวตนเกิดข้อผิดพลาด กรุณาลองใหม่ภายหลัง",
+  "auth.sso_invalid_response": "บริการยืนยันตัวตนส่งข้อมูลไม่ถูกต้อง กรุณาลองใหม่ภายหลัง"
 }

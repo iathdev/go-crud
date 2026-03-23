@@ -22,14 +22,14 @@ func (UserModel) TableName() string {
 	return "users"
 }
 
-func (m *UserModel) ToEntity() *domain.User {
+func (model *UserModel) ToEntity() *domain.User {
 	return &domain.User{
-		ID:         m.ID,
-		PrepUserID: m.PrepUserID,
-		Email:      m.Email,
-		Name:       m.Name,
-		CreatedAt:  m.CreatedAt,
-		UpdatedAt:  m.UpdatedAt,
+		ID:         model.ID,
+		PrepUserID: model.PrepUserID,
+		Email:      model.Email,
+		Name:       model.Name,
+		CreatedAt:  model.CreatedAt,
+		UpdatedAt:  model.UpdatedAt,
 	}
 }
 

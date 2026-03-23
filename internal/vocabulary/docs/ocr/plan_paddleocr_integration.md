@@ -2,177 +2,227 @@
 
 ## Context
 
-Project đã có OCR plan chi tiết (`plan_ocr_engine.md`) nhắm tới Google Vision + Baidu OCR (cloud APIs). Tuy nhiên, muốn **thử PaddleOCR trước** — engine OCR open-source, miễn phí, chạy local. Mục tiêu: setup nhanh để evaluate accuracy trước khi commit vào cloud APIs.
-
-Current state: endpoint `POST /api/vocabularies/ocr-scan` chỉ nhận danh sách hanzi đã extract sẵn, chưa nhận image.
+Project đã có OCR plan chi tiết (`plan_ocr_engine.md`) nhắm tới Google Vision + Baidu OCR (cloud APIs). Trước khi commit vào cloud APIs, **dùng PaddleOCR trước** — engine OCR open-source, miễn phí, chạy local — để evaluate accuracy.
 
 ### Alignment với `plan_ocr_engine.md`
 
-Thiết kế Go side (ports, DTOs, use case) **đồng nhất** với plan_ocr_engine.md để sau này swap PaddleOCR → Google Vision / Baidu chỉ cần thay adapter, không sửa interface:
+Thiết kế Go side (ports, DTOs, use case) **đồng nhất** với plan_ocr_engine.md. Sau này swap PaddleOCR → Google Vision / Baidu chỉ cần thêm adapter + đăng ký vào engine registry, không sửa interface:
 
-| Yếu tố | plan_ocr_engine.md | Implementation này |
+| Yếu tố | plan_ocr_engine.md | Implementation hiện tại |
 |---|---|---|
-| `OCRServicePort` interface | Đã định nghĩa (section 3.3) | **Dùng y nguyên** |
+| `OCRServicePort` interface | `ExtractCharacters()` (section 3.3) | `Recognize()` — cùng semantics, đổi tên cho gọn |
+| Multi-engine | Google Vision + Baidu OCR | `OCREngineRegistry` map — PaddleOCR đã wire, Google/Baidu thêm sau |
+| Engine routing | User-specified + cascading fallback | `resolveEngine()` trong use case — routing theo `type` + `language` |
 | Language codes | `"zh"`, `"vi"`, `"en"` | **Dùng y nguyên** (Python service map `"zh"` → PaddleOCR `"ch"`) |
 | Response format | `new_items`, `existing_items`, `low_confidence_items`, `metadata` | **Dùng y nguyên** |
-| Confidence thresholds | ≥80% confirmed, <70% low_confidence | **Dùng y nguyên** |
-| Endpoint | `POST /api/vocabularies/ocr-scan` (replace, Alternative A) | Tạo `POST /api/vocabularies/ocr-image` (giữ cũ backward compat — **sau này rename khi chốt engine**) |
-| Circuit breaker | gobreaker v2, cùng pattern `PrepUserService` | **Dùng y nguyên** |
+| Confidence thresholds | ≥80% confirmed, <70% low_confidence | **Dùng y nguyên** (constants trong `ocr_command.go`) |
+| Endpoint | `POST /api/vocabularies/ocr-scan` (Alternative A — single endpoint nhận image) | **Dùng y nguyên** — protected route, single endpoint |
+| Circuit breaker | gobreaker v2 | **Dùng y nguyên** — wrap OCR adapter |
 
-### Multi-engine design (Tesseract future)
+### Multi-engine design
 
-Python OCR service hỗ trợ **nhiều engine** qua `engine` parameter:
+**Go side:** `OCREngineRegistry` (`map[OCREngineKey]OCRServicePort`) cho phép đăng ký nhiều engine. Use case `resolveEngine()` chọn engine theo routing rules:
+
+- `printed` (any lang) → `google_vision`
+- `handwritten` + `zh` → `baidu_ocr`
+- `handwritten` + other → `google_vision`
+- `auto` → `google_vision` (primary)
+- Fallback: dùng engine nào có sẵn trong registry
+
+Hiện tại chỉ PaddleOCR được đăng ký → mọi request đều route tới PaddleOCR (fallback behavior).
+
+**Python side:** Python OCR service hỗ trợ nhiều engine qua `engine` parameter:
 - `paddleocr` (default) — PaddleOCR PP-OCRv5
 - `tesseract` — Tesseract OCR (cài thêm khi cần evaluate)
 
-Go side **không cần thay đổi** khi thêm engine mới — chỉ truyền `engine` param xuống Python service.
-
-Sau này khi chốt dùng Google Vision / Baidu (cloud):
+Khi chốt dùng Google Vision / Baidu (cloud):
 - Tạo `GoogleVisionAdapter` / `BaiduOCRAdapter` implement cùng `OCRServicePort`
-- Swap adapter trong DI container
+- Đăng ký vào `OCREngineRegistry` trong DI container
+- `resolveEngine()` tự route đúng engine
 - Python service retire
-
-## Approach
-
-Tạo một **Python HTTP service** wrap PaddleOCR (+ Tesseract), Go backend gọi qua HTTP. Phù hợp hexagonal architecture — PaddleOCR service là một adapter implement `OCRServicePort`.
 
 ---
 
-## Steps
+## Implementation (đã hoàn thành)
 
-### Step 1: Tạo Python OCR service (`scripts/ocr-service/`)
+### Step 1: Python OCR service (`scripts/ocr-service/`)
 
-Tạo thư mục `scripts/ocr-service/` với:
+**`requirements.txt`:**
+```
+paddlepaddle
+paddleocr
+fastapi
+uvicorn[standard]
+pydantic
+jieba
+pypinyin
+urllib3<2
+```
 
-- **`requirements.txt`** — `paddlepaddle`, `paddleocr`, `fastapi`, `uvicorn`, `python-multipart`
-- **`main.py`** — FastAPI app với endpoint:
-  ```
-  POST /recognize
-  Content-Type: application/json
-  Body: {
-    "image": "<base64-encoded image>",
-    "language": "zh",
-    "engine": "paddleocr"
-  }
+**`main.py`** — FastAPI app:
+- Endpoint: `POST /recognize`
+- Request: `{"image": "<base64>", "language": "zh", "engine": "paddleocr"}`
+- Response: `{"characters": [{"text": "你好", "pinyin": "nǐ hǎo", "confidence": 0.95, "candidates": []}], "engine": "paddleocr"}`
+- Chinese processing: jieba word segmentation → CJK filter (U+4E00–U+9FFF) → pypinyin conversion
+- Non-Chinese: trả raw text, pinyin rỗng
+- Health check: `GET /health`
 
-  Response: {
-    "characters": [
-      {"text": "你好", "confidence": 0.95, "candidates": []},
-      ...
-    ],
-    "engine": "paddleocr"
-  }
-  ```
-  - Nhận base64 image → decode → chạy engine → trả JSON với text + confidence per line
-  - Filter chỉ giữ CJK characters (U+4E00–U+9FFF) nếu language = "zh"
-  - Map language codes: API dùng `"zh"` → PaddleOCR dùng `"ch"` (internal mapping)
-  - Tesseract engine: optional, chỉ hoạt động nếu `pytesseract` đã cài
-
-### Step 2: Thêm `OCRServicePort` interface vào Go project
+### Step 2: Output port — `OCRServicePort`
 
 File: `internal/vocabulary/application/port/outbound.go`
 
 ```go
-// Matches plan_ocr_engine.md section 3.3 exactly
 type OCRServicePort interface {
-    ExtractCharacters(ctx context.Context, req OCRExtractRequest) (*OCRExtractResult, error)
+    Recognize(ctx context.Context, req OCRRequest) (*OCRResult, error)
 }
 
-type OCRExtractRequest struct {
+type OCRRequest struct {
     Image    []byte
-    Type     string  // "printed" | "handwritten" | "auto"
-    Language string  // "zh" | "vi" | "en"
+    Language string // "zh" | "vi" | "en"
 }
 
-type OCRExtractResult struct {
+type OCRResult struct {
     Characters []OCRCharacter
-    EngineUsed string  // "paddleocr" | "tesseract" | "google_vision" | "baidu_ocr"
+    Engine     string // "paddleocr" | "google_vision" | "baidu_ocr"
 }
 
 type OCRCharacter struct {
     Text       string
+    Pinyin     string
     Confidence float64
     Candidates []string
 }
+
+type OCREngineKey string
+
+const (
+    OCREnginePaddleOCR    OCREngineKey = "paddleocr"
+    OCREngineGoogleVision OCREngineKey = "google_vision"
+    OCREngineBaiduOCR     OCREngineKey = "baidu_ocr"
+)
+
+type OCREngineRegistry map[OCREngineKey]OCRServicePort
 ```
 
-### Step 3: Tạo OCR Service adapter
+### Step 3: OCR Service adapter
 
 File: `internal/vocabulary/adapter/service/ocr_service.go`
 
-- Implement `OCRServicePort`
-- Gọi HTTP POST tới Python service (`OCR_SERVICE_URL/recognize`) với **JSON body** chứa base64 image
-- Request format: `{"image": "<base64>", "language": "zh"}` — đồng nhất với Google Vision / Baidu OCR APIs
-- Parse JSON response → map sang `OCRExtractResult`
-- Dùng circuit breaker từ `infrastructure/circuitbreaker/` (cùng pattern auth module `PrepUserService`)
+- Implement `OCRServicePort` với method `Recognize()`
+- Encode image → base64 → gọi `POST {OCR_SERVICE_URL}/recognize`
+- Parse JSON response → map sang `port.OCRResult` (bao gồm `Pinyin`)
+- Wrap trong circuit breaker (`infrastructure/circuitbreaker/`)
 
-### Step 4: Update `OCRCommand` use case
-
-File: `internal/vocabulary/application/usecase/ocr_command.go`
-
-- Thêm `OCRServicePort` dependency
-- Thêm method mới `ProcessOCRImage()`:
-  - Nhận image bytes → gọi `OCRServicePort.ExtractCharacters()`
-  - Classify by confidence (matching plan_ocr_engine.md section 5.1):
-    - ≥ 80% → confirmed → check new/existing qua `VocabularyRepositoryPort.FindByHanziList()`
-    - < 70% → low_confidence (trả kèm candidates)
-  - Trả response với metadata (engine_used, total_detected, processing_time_ms)
-- Giữ nguyên `ProcessOCRScan()` cũ (backward compatible)
-
-### Step 5: Update DTOs
-
-File: `internal/vocabulary/application/dto/dto.go`
-
-- Thêm `OCRImageHTTPRequest` (JSON binding: `image_url`, type, language) — handler input
-- Thêm `OCRImageRequest` (image bytes, type, language) — internal use case input
-- Thêm `OCRImageResponse` matching plan_ocr_engine.md response format:
-  - `new_items`, `existing_items`, `low_confidence_items`
-  - `metadata` (engine_used, total_detected, processing_time_ms)
-
-### Step 6: Update handler
-
-File: `internal/vocabulary/adapter/handler/handler.go`
-
-- Thêm handler method `ProcessOCRImage()` — nhận **JSON body** với `image_url` (URL ảnh)
-- BE download ảnh từ URL → validate size ≤ 5MB, format JPEG/PNG → truyền bytes cho use case
-- Use case convert sang base64 rồi gửi cho OCR service (đồng nhất Google Vision / Baidu)
-- Giữ nguyên handler `ProcessOCRScan()` cũ
-
-### Step 7: Thêm inbound port
+### Step 4: Input port — `OCRCommandPort`
 
 File: `internal/vocabulary/application/port/inbound.go`
 
-- Thêm method `ProcessOCRImage` vào `OCRCommandPort` interface
+```go
+type OCRCommandPort interface {
+    ProcessOCRScan(ctx context.Context, req vdto.OCRScanRequest) (*vdto.OCRScanResponse, error)
+}
+```
 
-### Step 8: Wire everything
+Single method — nhận image bytes, trả kết quả đã classify.
 
-- `internal/vocabulary/module.go` — inject `OCRServicePort` vào `OCRCommand`
-- `internal/infrastructure/di/container.go` — tạo `OCRService` với circuit breaker + config URL
-- `internal/infrastructure/config/ocr.go` — thêm `OCRConfig` struct
-- `.env.example` — thêm `OCR_SERVICE_URL=http://localhost:8000`
-- `internal/vocabulary/module.go` — thêm route `POST /api/vocabularies/ocr-image`
+### Step 5: DTOs
+
+File: `internal/vocabulary/application/dto/dto.go`
+
+```go
+// Handler input (JSON binding)
+type OCRScanHTTPRequest struct {
+    ImageURL string `json:"image_url" binding:"required,url"`
+    Type     string `json:"type" binding:"omitempty,oneof=printed handwritten auto"`
+    Language string `json:"language" binding:"omitempty,oneof=zh vi en"`
+}
+
+// Use case input (image bytes)
+type OCRScanRequest struct {
+    Image    []byte
+    Type     string // "printed" | "handwritten" | "auto"
+    Language string // "zh" | "vi" | "en"
+}
+
+// Response types
+type OCRScanCharacterItem struct {
+    Hanzi      string   `json:"hanzi"`
+    Pinyin     string   `json:"pinyin"`
+    Confidence float64  `json:"confidence"`
+    Candidates []string `json:"candidates,omitempty"`
+}
+
+type OCRScanExistingItem struct {
+    VocabularyListResponse
+    Confidence float64  `json:"confidence"`
+    Candidates []string `json:"candidates,omitempty"`
+}
+
+type OCRScanMetadata struct {
+    EngineUsed       string `json:"engine_used"`
+    TotalDetected    int    `json:"total_detected"`
+    ProcessingTimeMs int64  `json:"processing_time_ms"`
+}
+
+type OCRScanResponse struct {
+    NewItems           []OCRScanCharacterItem `json:"new_items"`
+    ExistingItems      []OCRScanExistingItem  `json:"existing_items"`
+    LowConfidenceItems []OCRScanCharacterItem `json:"low_confidence_items"`
+    Metadata           OCRScanMetadata        `json:"metadata"`
+}
+```
+
+### Step 6: Use case — `OCRCommand`
+
+File: `internal/vocabulary/application/usecase/ocr_command.go`
+
+- Dependencies: `VocabularyRepositoryPort` + `OCREngineRegistry`
+- `resolveEngine(type, language)` — routing logic theo plan_ocr_engine.md section 5.1
+- `ProcessOCRScan()`:
+  1. Resolve engine theo type + language
+  2. Gọi `engine.Recognize()` với image bytes
+  3. Classify theo confidence: ≥0.70 → confirmed, <0.70 → low_confidence
+  4. Check confirmed items against DB (`FindByHanziList`)
+  5. Split: new_items / existing_items / low_confidence_items
+  6. Trả response kèm metadata (engine, total_detected, processing_time_ms)
+
+### Step 7: Handler
+
+File: `internal/vocabulary/adapter/handler/handler.go`
+
+- `ProcessOCRScan(c *gin.Context)`:
+  1. Parse `OCRScanHTTPRequest` từ JSON body
+  2. Download image từ URL (max 5MB, chỉ JPEG/PNG)
+  3. Default: type="auto", language="zh"
+  4. Gọi `ocrCmd.ProcessOCRScan()`
+
+### Step 8: Wiring
+
+- **`internal/vocabulary/module.go`**: `NewModule(db, ocrEngines OCREngineRegistry)` → inject vào `OCRCommand` → register route `protected.POST("/vocabularies/ocr-scan", ...)`
+- **`internal/infrastructure/di/container.go`**: Tạo circuit breaker → tạo `OCRService` adapter → đăng ký vào `OCREngineRegistry{OCREnginePaddleOCR: ocrAdapter}` → truyền vào module
+- **`internal/infrastructure/config/ocr.go`**: `OCRConfig{OCRServiceURL}` load từ env
+- **`.env.example`**: `OCR_SERVICE_URL=http://localhost:8000`
 
 ---
 
-## Files to create
+## Files đã tạo
 
 - `scripts/ocr-service/requirements.txt`
 - `scripts/ocr-service/main.py`
-- `scripts/ocr-service/README.md`
 - `internal/vocabulary/adapter/service/ocr_service.go`
 - `internal/infrastructure/config/ocr.go`
 
-## Files to modify
+## Files đã sửa
 
-- `internal/vocabulary/application/port/outbound.go` — thêm `OCRServicePort` interface
-- `internal/vocabulary/application/port/inbound.go` — thêm `ProcessOCRImage` method
-- `internal/vocabulary/application/dto/dto.go` — thêm DTOs mới
-- `internal/vocabulary/application/usecase/ocr_command.go` — thêm `OCRServicePort` dep + `ProcessOCRImage()`
-- `internal/vocabulary/adapter/handler/handler.go` — thêm multipart handler
-- `internal/vocabulary/module.go` — wire adapter + route
-- `internal/infrastructure/di/container.go` — tạo adapter
+- `internal/vocabulary/application/port/outbound.go` — `OCRServicePort`, `OCREngineRegistry`
+- `internal/vocabulary/application/port/inbound.go` — `OCRCommandPort` với single method `ProcessOCRScan`
+- `internal/vocabulary/application/dto/dto.go` — `OCRScan*` DTOs
+- `internal/vocabulary/application/usecase/ocr_command.go` — `OCRCommand` với engine registry + routing
+- `internal/vocabulary/adapter/handler/handler.go` — `ProcessOCRScan` handler + `downloadImage` helper
+- `internal/vocabulary/module.go` — nhận `OCREngineRegistry`, wire route
+- `internal/infrastructure/di/container.go` — tạo adapter + registry
 - `internal/infrastructure/config/config.go` — embed `OCRConfig`
-- `.env.example` — thêm config
+- `.env.example` — thêm `OCR_SERVICE_URL`
 
 ---
 
@@ -193,11 +243,11 @@ pip install -r requirements.txt
 # (Optional) Cài Tesseract engine
 # macOS:
 brew install tesseract tesseract-lang
-pip install pytesseract
+pip install pytesseract Pillow
 
 # Ubuntu:
 # sudo apt install tesseract-ocr tesseract-ocr-chi-sim
-# pip install pytesseract
+# pip install pytesseract Pillow
 ```
 
 ### Chạy service
@@ -239,8 +289,8 @@ curl http://localhost:8000/health
 ```json
 {
   "characters": [
-    {"text": "你好", "confidence": 0.9521, "candidates": []},
-    {"text": "世界", "confidence": 0.9234, "candidates": []}
+    {"text": "你好", "pinyin": "nǐ hǎo", "confidence": 0.9521, "candidates": []},
+    {"text": "世界", "pinyin": "shì jiè", "confidence": 0.9234, "candidates": []}
   ],
   "engine": "paddleocr"
 }
@@ -256,7 +306,7 @@ cd scripts/ocr-service && source .venv/bin/activate && uvicorn main:app --port 8
 make run
 
 # 3. Test endpoint (terminal 3) — cần JWT token
-curl -X POST http://localhost:8001/api/vocabularies/ocr-image \
+curl -X POST http://localhost:8001/api/vocabularies/ocr-scan \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"image_url": "https://example.com/test_image.jpg", "type": "auto", "language": "zh"}'
@@ -268,13 +318,13 @@ curl -X POST http://localhost:8001/api/vocabularies/ocr-image \
   "success": true,
   "data": {
     "new_items": [
-      {"hanzi": "新词", "confidence": 0.92, "candidates": []}
+      {"hanzi": "新词", "pinyin": "xīn cí", "confidence": 0.92, "candidates": []}
     ],
     "existing_items": [
-      {"id": "uuid", "hanzi": "你好", "pinyin": "nǐ hǎo", "meaning_vi": "Xin chào", "confidence": 0.98, "candidates": []}
+      {"id": "uuid", "hanzi": "你好", "pinyin": "nǐ hǎo", "meaning_vi": "Xin chào", "meaning_en": "Hello", "hsk_level": 1, "confidence": 0.98, "candidates": []}
     ],
     "low_confidence_items": [
-      {"hanzi": "鑫", "confidence": 0.55, "candidates": ["鑫", "森", "淼"]}
+      {"hanzi": "鑫", "pinyin": "xīn", "confidence": 0.55, "candidates": ["鑫", "森", "淼"]}
     ],
     "metadata": {
       "engine_used": "paddleocr",
@@ -301,10 +351,16 @@ curl -X POST http://localhost:8001/api/vocabularies/ocr-image \
 
 Khi chốt dùng Google Vision / Baidu (theo `plan_ocr_engine.md`):
 
-1. Tạo `GoogleVisionAdapter` implement cùng `OCRServicePort` → swap trong DI
-2. Tạo `BaiduOCRAdapter` implement cùng `OCRServicePort` → swap trong DI
-3. Thêm routing logic trong use case (type + language → chọn engine)
-4. Retire Python service
-5. Rename endpoint `ocr-image` → `ocr-scan` (replace current JSON endpoint)
+1. Tạo `GoogleVisionAdapter` implement `OCRServicePort` (method `Recognize`)
+2. Tạo `BaiduOCRAdapter` implement `OCRServicePort` (method `Recognize`)
+3. Đăng ký vào `OCREngineRegistry` trong DI container:
+   ```go
+   ocrEngines := vocabport.OCREngineRegistry{
+       vocabport.OCREngineGoogleVision: googleAdapter,
+       vocabport.OCREngineBaiduOCR:     baiduAdapter,
+   }
+   ```
+4. `resolveEngine()` trong use case tự route đúng engine — **không cần sửa logic**
+5. Retire Python service + PaddleOCR adapter
 
-**Không cần sửa**: ports, DTOs, use case logic, handler, response format.
+**Không cần sửa**: ports, DTOs, use case logic, handler, response format, routing logic.

@@ -4,6 +4,7 @@ import (
 	"learning-go/internal/shared/common"
 	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
+	"net/http"
 	"sync"
 	"time"
 
@@ -93,7 +94,7 @@ func RateLimitMiddleware(requestsPerSecond float64, burst int) gin.HandlerFunc {
 
 		if !allowed {
 			logger.WithContext(c.Request.Context()).Warn("[SERVER] rate limit exceeded", zap.String("client_ip", ip))
-			response.Error(c, 429, "common.too_many_requests")
+			response.Error(c, http.StatusTooManyRequests, "common.too_many_requests")
 			c.Abort()
 			return
 		}

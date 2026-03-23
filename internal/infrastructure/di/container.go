@@ -8,8 +8,8 @@ import (
 	sharederror "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	"learning-go/internal/vocabulary"
-	vocabport "learning-go/internal/vocabulary/application/port"
 	vocabservice "learning-go/internal/vocabulary/adapter/service"
+	vocabport "learning-go/internal/vocabulary/application/port"
 	"strings"
 
 	"go.uber.org/zap"
@@ -65,7 +65,7 @@ func NewApp() (*server.Server, func(), error) {
 	router := server.NewRouter(authModule, vocabularyModule, pst.db, cfg)
 	srv := server.NewServer(cfg, router)
 
-	logger.Info("app initialized successfully",
+	logger.Info("[SERVER] app initialized successfully",
 		zap.String("service", cfg.GetServiceName()),
 		zap.String("log_channels", strings.Join(cfg.GetLogChannels(), ",")),
 		zap.Bool("tracing_enabled", cfg.OTLPEndpoint != ""),

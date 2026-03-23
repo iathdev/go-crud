@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
@@ -25,10 +25,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 
 	existing, err := useCase.vocabRepo.FindByHanziList(ctx, hanziList)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("import.check_existing_failed", err)
+		return nil, apperr.InternalServerError("import.check_existing_failed", err)
 	}
 
 	existingSet := make(map[string]bool, len(existing))
@@ -70,10 +67,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 	if len(newVocabs) > 0 {
 		imported, err = useCase.vocabRepo.SaveBatch(ctx, newVocabs)
 		if err != nil {
-			if _, ok := sharederror.IsAppError(err); ok {
-				return nil, err
-			}
-			return nil, sharederror.InternalServerError("import.save_failed", err)
+			return nil, apperr.InternalServerError("import.save_failed", err)
 		}
 	}
 

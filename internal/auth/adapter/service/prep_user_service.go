@@ -7,7 +7,7 @@ import (
 	"learning-go/internal/auth/application/port"
 	"learning-go/internal/auth/domain"
 	"learning-go/internal/infrastructure/circuitbreaker"
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	"net/http"
 	"time"
@@ -46,32 +46,30 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 	result, err := service.breaker.Execute(func() (any, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, service.baseURL+"/auth/api/v1.1/auth/me", nil)
 		if err != nil {
-			return nil, err
+			return nil, apperr.InternalServerError("common.internal_server_error", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 
 		resp, err := service.client.Do(req)
 		if err != nil {
-			logger.WithContext(ctx).Error("[AUTH] prep user service request failed", zap.Error(err))
-			return nil, sharederror.ServiceUnavailable("auth.sso_service_error", err)
+			logger.WithContext(ctx).Error("[AUTH] Prep service connection failed", zap.Error(err))
+			return nil, apperr.ServiceUnavailable("auth.sso_connection_failed", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusUnauthorized {
-			return nil, sharederror.Unauthorized("auth.sso_token_invalid")
+			return nil, apperr.Unauthorized("auth.sso_token_invalid")
 		}
 		if resp.StatusCode != http.StatusOK {
-			statusErr := fmt.Errorf("unexpected status: %s", resp.Status)
-			logger.WithContext(ctx).Error("[AUTH] prep user service unexpected status",
-				zap.String("status", resp.Status),
-			)
-			return nil, sharederror.ServiceUnavailable("auth.sso_service_error", statusErr)
+			statusErr := fmt.Errorf("status: %s", resp.Status)
+			logger.WithContext(ctx).Error("[AUTH] Prep service returned error", zap.Int("status", resp.StatusCode))
+			return nil, apperr.ServiceUnavailable("auth.sso_service_error", statusErr)
 		}
 
 		var body prepMeResponse
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-			logger.WithContext(ctx).Error("[AUTH] prep user service decode error", zap.Error(err))
-			return nil, sharederror.ServiceUnavailable("auth.sso_service_error", err)
+			logger.WithContext(ctx).Error("[AUTH] failed to decode Prep response", zap.Error(err))
+			return nil, apperr.ServiceUnavailable("auth.sso_invalid_response", err)
 		}
 
 		return domain.NewPrepUser(body.Data.ID, body.Data.Email, body.Data.Name), nil

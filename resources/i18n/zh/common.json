@@ -12,6 +12,13 @@
   "common.too_many_requests": "请求过多，请稍后再试",
   "common.deleted_successfully": "删除成功",
   "common.service_unavailable": "服务暂时不可用，请稍后再试",
-  "common.route_not_found": "路由未找到",
-  "common.method_not_allowed": "请求方法不允许"
+  "common.route_not_found": "请求的接口不存在",
+  "common.method_not_allowed": "请求方法不允许",
+  "ocr.image_download_failed": "图片下载失败，请检查URL并确保为5MB以下的JPEG或PNG图片",
+  "ocr.service_connection_failed": "OCR服务暂时不可用，请稍后再试",
+  "ocr.service_error": "OCR服务返回错误，请稍后再试",
+  "ocr.service_invalid_response": "OCR服务返回无效响应，请稍后再试",
+  "auth.sso_connection_failed": "认证服务暂时不可用，请稍后再试",
+  "auth.sso_service_error": "认证服务返回错误，请稍后再试",
+  "auth.sso_invalid_response": "认证服务返回无效响应，请稍后再试"
 }

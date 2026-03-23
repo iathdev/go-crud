@@ -3,7 +3,7 @@ package circuitbreaker
 import (
 	"errors"
 
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 
 	"github.com/sony/gobreaker/v2"
@@ -32,7 +32,7 @@ func NewBreaker(cfg BreakerConfig, isSuccessful func(err error) bool) *Breaker {
 		},
 		IsSuccessful: isSuccessful,
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			logger.Warn("circuit breaker state change",
+			logger.Warn("[SERVER] circuit breaker state change",
 				zap.String("breaker", name),
 				zap.String("from", from.String()),
 				zap.String("to", to.String()),
@@ -54,7 +54,7 @@ func (breaker *Breaker) Execute(fn func() (any, error)) (any, error) {
 	result, err := breaker.cb.Execute(fn)
 	if err != nil {
 		if errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
-			return nil, sharederror.ServiceUnavailable("common.service_unavailable", err)
+			return nil, apperr.ServiceUnavailable("common.service_unavailable", err)
 		}
 		return nil, err
 	}

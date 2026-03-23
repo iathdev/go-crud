@@ -20,14 +20,14 @@ type FolderModel struct {
 
 func (FolderModel) TableName() string { return "folders" }
 
-func (m *FolderModel) ToEntity() *domain.Folder {
+func (model *FolderModel) ToEntity() *domain.Folder {
 	return &domain.Folder{
-		ID:          m.ID,
-		UserID:      m.UserID,
-		Name:        m.Name,
-		Description: m.Description,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:          model.ID,
+		UserID:      model.UserID,
+		Name:        model.Name,
+		Description: model.Description,
+		CreatedAt:   model.CreatedAt,
+		UpdatedAt:   model.UpdatedAt,
 	}
 }
 

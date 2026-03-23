@@ -7,8 +7,6 @@ import (
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 
-	sharederror "learning-go/internal/shared/error"
-
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -37,7 +35,7 @@ func (repo *TopicRepository) FindBySlug(ctx context.Context, slug string) (*doma
 	var m model.TopicModel
 	if err := repo.db.WithContext(ctx).First(&m, "slug = ?", slug).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NotFound("topic.not_found")
+			return nil, nil
 		}
 		return nil, err
 	}

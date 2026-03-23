@@ -28,6 +28,9 @@ migrate-down:
 migrate-down-%:
 	@$(MAKE) migrate-down STEPS=$*
 
+migrate-force:
+	@$(MIGRATE) -path "$(PATH_MIG)" -database "$(URL)" force $(VERSION)
+
 migrate-reset:
 	@$(MIGRATE) -path "$(PATH_MIG)" -database "$(URL)" drop -f
 

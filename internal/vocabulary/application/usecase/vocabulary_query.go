@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"learning-go/internal/shared/dto"
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
@@ -35,15 +35,15 @@ func NewVocabularyQuery(
 func (useCase *VocabularyQuery) GetVocabulary(ctx context.Context, id string) (*vdto.VocabularyResponse, error) {
 	uuidID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, sharederror.BadRequest("vocabulary.invalid_id")
+		return nil, apperr.BadRequest("vocabulary.invalid_id")
 	}
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
+	}
+	if vocab == nil {
+		return nil, apperr.NotFound("vocabulary.not_found")
 	}
 
 	return toVocabularyResponse(vocab), nil
@@ -52,15 +52,15 @@ func (useCase *VocabularyQuery) GetVocabulary(ctx context.Context, id string) (*
 func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id string) (*vdto.VocabularyDetailResponse, error) {
 	uuidID, err := uuid.Parse(id)
 	if err != nil {
-		return nil, sharederror.BadRequest("vocabulary.invalid_id")
+		return nil, apperr.BadRequest("vocabulary.invalid_id")
 	}
 
 	vocab, err := useCase.vocabRepo.FindByID(ctx, uuidID)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
+	}
+	if vocab == nil {
+		return nil, apperr.NotFound("vocabulary.not_found")
 	}
 
 	// Fetch related topics
@@ -106,18 +106,12 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 
 	total, err := useCase.vocabRepo.CountByHSKLevel(ctx, level)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	vocabs, err := useCase.vocabRepo.FindByHSKLevel(ctx, level, offset, pagination.PageSize)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -126,10 +120,10 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pagination dto.PaginationRequest) (*dto.PaginatedResponse, error) {
 	topic, err := useCase.topicRepo.FindBySlug(ctx, slug)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("topic.query_failed", err)
+		return nil, apperr.InternalServerError("topic.query_failed", err)
+	}
+	if topic == nil {
+		return nil, apperr.NotFound("topic.not_found")
 	}
 
 	normalizePagination(&pagination)
@@ -137,18 +131,12 @@ func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pa
 
 	total, err := useCase.vocabRepo.CountByTopicID(ctx, topic.ID)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	vocabs, err := useCase.vocabRepo.FindByTopicID(ctx, topic.ID, offset, pagination.PageSize)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -160,18 +148,12 @@ func (useCase *VocabularyQuery) SearchVocabulary(ctx context.Context, query stri
 
 	total, err := useCase.vocabRepo.CountSearch(ctx, query)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	vocabs, err := useCase.vocabRepo.Search(ctx, query, offset, pagination.PageSize)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("vocabulary.query_failed", err)
+		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
 	return toPaginatedResponse(vocabs, total, pagination), nil
@@ -250,12 +232,12 @@ func toPaginatedResponse(vocabs []*domain.Vocabulary, total int64, pagination dt
 
 func normalizePagination(p *dto.PaginationRequest) {
 	if p.Page < 1 {
-		p.Page = 1
+		p.Page = dto.DefaultPage
 	}
 	if p.PageSize < 1 {
-		p.PageSize = 10
+		p.PageSize = dto.DefaultPageSize
 	}
-	if p.PageSize > 100 {
-		p.PageSize = 100
+	if p.PageSize > dto.MaxPageSize {
+		p.PageSize = dto.MaxPageSize
 	}
 }

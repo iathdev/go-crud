@@ -97,59 +97,44 @@ type GrammarPointResponse struct {
 	HSKLevel      int    `json:"hsk_level"`
 }
 
-// --- OCR DTOs ---
+// --- OCR DTOs (matches plan_ocr_engine.md response format) ---
 
-type OCRScanRequest struct {
-	Items []OCRScanItem `json:"items" binding:"required,min=1"`
-}
-
-type OCRScanItem struct {
-	Hanzi string `json:"hanzi" binding:"required"`
-}
-
-type OCRScanResponse struct {
-	NewItems      []VocabularyListResponse `json:"new_items"`
-	ExistingItems []VocabularyListResponse `json:"existing_items"`
-}
-
-// --- OCR Image DTOs (matches plan_ocr_engine.md response format) ---
-
-type OCRImageHTTPRequest struct {
+type OCRScanHTTPRequest struct {
 	ImageURL string `json:"image_url" binding:"required,url"`
 	Type     string `json:"type" binding:"omitempty,oneof=printed handwritten auto"`
 	Language string `json:"language" binding:"omitempty,oneof=zh vi en"`
 }
 
-type OCRImageRequest struct {
+type OCRScanRequest struct {
 	Image    []byte
 	Type     string // "printed" | "handwritten" | "auto"
 	Language string // "zh" | "vi" | "en"
 }
 
-type OCRImageCharacterItem struct {
+type OCRScanCharacterItem struct {
 	Hanzi      string   `json:"hanzi"`
 	Pinyin     string   `json:"pinyin"`
 	Confidence float64  `json:"confidence"`
 	Candidates []string `json:"candidates,omitempty"`
 }
 
-type OCRImageExistingItem struct {
+type OCRScanExistingItem struct {
 	VocabularyListResponse
 	Confidence float64  `json:"confidence"`
 	Candidates []string `json:"candidates,omitempty"`
 }
 
-type OCRImageMetadata struct {
+type OCRScanMetadata struct {
 	EngineUsed       string `json:"engine_used"`
 	TotalDetected    int    `json:"total_detected"`
 	ProcessingTimeMs int64  `json:"processing_time_ms"`
 }
 
-type OCRImageResponse struct {
-	NewItems           []OCRImageCharacterItem  `json:"new_items"`
-	ExistingItems      []OCRImageExistingItem   `json:"existing_items"`
-	LowConfidenceItems []OCRImageCharacterItem  `json:"low_confidence_items"`
-	Metadata           OCRImageMetadata         `json:"metadata"`
+type OCRScanResponse struct {
+	NewItems           []OCRScanCharacterItem `json:"new_items"`
+	ExistingItems      []OCRScanExistingItem  `json:"existing_items"`
+	LowConfidenceItems []OCRScanCharacterItem `json:"low_confidence_items"`
+	Metadata           OCRScanMetadata        `json:"metadata"`
 }
 
 // --- Bulk Import DTOs ---

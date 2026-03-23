@@ -12,6 +12,13 @@
   "common.too_many_requests": "Too many requests, please try again later",
   "common.deleted_successfully": "Deleted successfully",
   "common.service_unavailable": "Service temporarily unavailable, please try again later",
-  "common.route_not_found": "Route not found",
-  "common.method_not_allowed": "Method not allowed"
+  "common.route_not_found": "The requested endpoint does not exist",
+  "common.method_not_allowed": "Method not allowed",
+  "ocr.image_download_failed": "Failed to download image. Please check the URL and ensure it is a valid JPEG or PNG image under 5MB",
+  "ocr.service_connection_failed": "OCR service is currently unavailable, please try again later",
+  "ocr.service_error": "OCR service returned an error, please try again later",
+  "ocr.service_invalid_response": "OCR service returned an invalid response, please try again later",
+  "auth.sso_connection_failed": "Authentication service is currently unavailable, please try again later",
+  "auth.sso_service_error": "Authentication service returned an error, please try again later",
+  "auth.sso_invalid_response": "Authentication service returned an invalid response, please try again later"
 }

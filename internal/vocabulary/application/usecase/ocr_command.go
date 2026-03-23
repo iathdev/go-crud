@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
@@ -56,56 +56,11 @@ func (useCase *OCRCommand) resolveEngine(ocrType, language string) (port.OCRServ
 }
 
 func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanRequest) (*vdto.OCRScanResponse, error) {
-	hanziList := make([]string, 0, len(req.Items))
-	for _, item := range req.Items {
-		hanziList = append(hanziList, item.Hanzi)
-	}
-
-	existing, err := useCase.vocabRepo.FindByHanziList(ctx, hanziList)
-	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("ocr.find_existing_failed", err)
-	}
-
-	existingMap := make(map[string]*domain.Vocabulary, len(existing))
-	for _, v := range existing {
-		existingMap[v.Hanzi] = v
-	}
-
-	var newItems []vdto.VocabularyListResponse
-	var existingItems []vdto.VocabularyListResponse
-
-	for _, item := range req.Items {
-		if v, found := existingMap[item.Hanzi]; found {
-			existingItems = append(existingItems, toVocabularyListResponse(v))
-		} else {
-			newItems = append(newItems, vdto.VocabularyListResponse{
-				Hanzi: item.Hanzi,
-			})
-		}
-	}
-
-	if newItems == nil {
-		newItems = []vdto.VocabularyListResponse{}
-	}
-	if existingItems == nil {
-		existingItems = []vdto.VocabularyListResponse{}
-	}
-
-	return &vdto.OCRScanResponse{
-		NewItems:      newItems,
-		ExistingItems: existingItems,
-	}, nil
-}
-
-func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImageRequest) (*vdto.OCRImageResponse, error) {
 	start := time.Now()
 
 	engine, _ := useCase.resolveEngine(req.Type, req.Language)
 	if engine == nil {
-		return nil, sharederror.ServiceUnavailable("ocr.no_engine_available", nil)
+		return nil, apperr.ServiceUnavailable("ocr.no_engine_available", nil)
 	}
 
 	ocrResult, err := engine.Recognize(ctx, port.OCRRequest{
@@ -113,21 +68,21 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 		Language: req.Language,
 	})
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
+		if _, ok := apperr.IsAppError(err); ok {
 			return nil, err
 		}
-		return nil, sharederror.ServiceUnavailable("ocr.recognize_failed", err)
+		return nil, apperr.ServiceUnavailable("ocr.recognize_failed", err)
 	}
 
 	totalDetected := len(ocrResult.Characters)
 
 	// Classify by confidence (matching plan_ocr_engine.md thresholds)
 	var confirmed []port.OCRCharacter
-	var lowConfidenceItems []vdto.OCRImageCharacterItem
+	var lowConfidenceItems []vdto.OCRScanCharacterItem
 
 	for _, ch := range ocrResult.Characters {
 		if ch.Confidence < ocrConfidenceLowThreshold {
-			lowConfidenceItems = append(lowConfidenceItems, vdto.OCRImageCharacterItem{
+			lowConfidenceItems = append(lowConfidenceItems, vdto.OCRScanCharacterItem{
 				Hanzi:      ch.Text,
 				Pinyin:     ch.Pinyin,
 				Confidence: ch.Confidence,
@@ -148,10 +103,10 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 	if len(hanziList) > 0 {
 		existing, err := useCase.vocabRepo.FindByHanziList(ctx, hanziList)
 		if err != nil {
-			if _, ok := sharederror.IsAppError(err); ok {
+			if _, ok := apperr.IsAppError(err); ok {
 				return nil, err
 			}
-			return nil, sharederror.InternalServerError("ocr.find_existing_failed", err)
+			return nil, apperr.InternalServerError("ocr.find_existing_failed", err)
 		}
 		existingMap = make(map[string]*domain.Vocabulary, len(existing))
 		for _, v := range existing {
@@ -159,18 +114,18 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 		}
 	}
 
-	var newItems []vdto.OCRImageCharacterItem
-	var existingItems []vdto.OCRImageExistingItem
+	var newItems []vdto.OCRScanCharacterItem
+	var existingItems []vdto.OCRScanExistingItem
 
 	for _, ch := range confirmed {
 		if v, found := existingMap[ch.Text]; found {
-			existingItems = append(existingItems, vdto.OCRImageExistingItem{
+			existingItems = append(existingItems, vdto.OCRScanExistingItem{
 				VocabularyListResponse: toVocabularyListResponse(v),
 				Confidence:             ch.Confidence,
 				Candidates:             ch.Candidates,
 			})
 		} else {
-			newItems = append(newItems, vdto.OCRImageCharacterItem{
+			newItems = append(newItems, vdto.OCRScanCharacterItem{
 				Hanzi:      ch.Text,
 				Pinyin:     ch.Pinyin,
 				Confidence: ch.Confidence,
@@ -180,20 +135,20 @@ func (useCase *OCRCommand) ProcessOCRImage(ctx context.Context, req vdto.OCRImag
 	}
 
 	if newItems == nil {
-		newItems = []vdto.OCRImageCharacterItem{}
+		newItems = []vdto.OCRScanCharacterItem{}
 	}
 	if existingItems == nil {
-		existingItems = []vdto.OCRImageExistingItem{}
+		existingItems = []vdto.OCRScanExistingItem{}
 	}
 	if lowConfidenceItems == nil {
-		lowConfidenceItems = []vdto.OCRImageCharacterItem{}
+		lowConfidenceItems = []vdto.OCRScanCharacterItem{}
 	}
 
-	return &vdto.OCRImageResponse{
+	return &vdto.OCRScanResponse{
 		NewItems:           newItems,
 		ExistingItems:      existingItems,
 		LowConfidenceItems: lowConfidenceItems,
-		Metadata: vdto.OCRImageMetadata{
+		Metadata: vdto.OCRScanMetadata{
 			EngineUsed:       ocrResult.Engine,
 			TotalDetected:    totalDetected,
 			ProcessingTimeMs: time.Since(start).Milliseconds(),

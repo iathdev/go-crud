@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 
 	"github.com/sony/gobreaker/v2"
 )
@@ -66,14 +66,14 @@ func TestBreaker_TripsAfterFailures(t *testing.T) {
 		return "should not execute", nil
 	})
 
-	appErr, ok := sharederror.IsAppError(err)
-	if !ok || appErr.Code() != sharederror.CodeServiceUnavailable {
+	appErr, ok := apperr.IsAppError(err)
+	if !ok || appErr.Code() != apperr.CodeServiceUnavailable {
 		t.Fatalf("expected CodeServiceUnavailable, got %v", err)
 	}
 }
 
 func TestBreaker_IsSuccessful_BusinessErrorsDoNotTrip(t *testing.T) {
-	notFoundErr := sharederror.NotFound("common.not_found")
+	notFoundErr := apperr.NotFound("common.not_found")
 
 	b := NewBreaker(BreakerConfig{
 		Name:         "test",
@@ -86,8 +86,8 @@ func TestBreaker_IsSuccessful_BusinessErrorsDoNotTrip(t *testing.T) {
 		if err == nil {
 			return true
 		}
-		appErr, ok := sharederror.IsAppError(err)
-		return ok && appErr.Code() == sharederror.CodeNotFound
+		appErr, ok := apperr.IsAppError(err)
+		return ok && appErr.Code() == apperr.CodeNotFound
 	})
 
 	// Generate many "not found" errors - these should NOT trip the breaker

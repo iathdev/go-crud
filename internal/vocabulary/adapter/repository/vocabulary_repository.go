@@ -7,10 +7,7 @@ import (
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 
-	sharederror "learning-go/internal/shared/error"
-
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +33,7 @@ func (repo *VocabularyRepository) FindByID(ctx context.Context, id uuid.UUID) (*
 	var m model.VocabularyModel
 	if err := repo.db.WithContext(ctx).First(&m, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NotFound("vocabulary.not_found")
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -47,7 +44,7 @@ func (repo *VocabularyRepository) FindByHanzi(ctx context.Context, hanzi string)
 	var m model.VocabularyModel
 	if err := repo.db.WithContext(ctx).Where("hanzi = ?", hanzi).First(&m).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, sharederror.NotFound("vocabulary.not_found")
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -168,11 +165,11 @@ func (repo *VocabularyRepository) SetTopics(ctx context.Context, vocabID uuid.UU
 		}
 		return nil
 	})
-	return classifyWriteError(err, "vocabulary.invalid_topic_id")
+	return err
 }
 
 func (repo *VocabularyRepository) SetGrammarPoints(ctx context.Context, vocabID uuid.UUID, grammarPointIDs []uuid.UUID) error {
-	err := repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("vocabulary_id = ?", vocabID).Delete(&model.VocabularyGrammarPointModel{}).Error; err != nil {
 			return err
 		}
@@ -184,20 +181,6 @@ func (repo *VocabularyRepository) SetGrammarPoints(ctx context.Context, vocabID 
 		}
 		return nil
 	})
-	return classifyWriteError(err, "vocabulary.invalid_grammar_point_id")
-}
-
-// classifyWriteError checks for FK violation (Postgres code 23503) and returns
-// an InvalidInput AppError. Other errors pass through unchanged.
-func classifyWriteError(err error, fkViolationKey string) error {
-	if err == nil {
-		return nil
-	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-		return sharederror.BadRequest(fkViolationKey)
-	}
-	return err
 }
 
 func toVocabEntities(models []model.VocabularyModel) []*domain.Vocabulary {

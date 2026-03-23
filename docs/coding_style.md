@@ -1,99 +1,71 @@
 # Coding Style
 
-## Naming — No abbreviations, must be immediately readable
+## Naming
 
-- **Receiver name**: Use meaningful names, NEVER use single-character abbreviations (`p`, `u`, `v`, `m`, `r`, `s`...).
-  - Bad: `func (p *UserProfile) CompleteOnboarding(...)`
-  - Good: `func (profile *UserProfile) CompleteOnboarding(...)`
-  - Good: `func (repo *VocabularyRepository) FindByID(...)`
-  - Good: `func (handler *VocabularyHandler) CreateVocabulary(...)`
-- **Variables and parameters**: Names must be self-explanatory, no abbreviations unless it's a widely accepted convention.
-  - Bad: `v`, `f`, `gp`, `m`
-  - Good: `vocab`, `folder`, `grammarPoint`, `model`
-- **Allowed abbreviations**: `ctx`, `err`, `db`, `cfg`, `id`, `req`, `res`, `tx` (transaction).
+- **No single-character receivers.** Use meaningful names: `profile`, `repo`, `handler` — not `p`, `r`, `h`.
+- **No abbreviations** except: `ctx`, `err`, `db`, `cfg`, `id`, `req`, `res`, `tx`.
 
-## Logging — Module prefix required
+## Logging
 
-- All log messages MUST include a module prefix in uppercase brackets: `[MODULE_NAME]`.
-- Prefix is based on the module the code belongs to, not the package name.
-- This applies to all log levels (Error, Warn, Info, Debug).
+All log messages MUST include module prefix: `[AUTH]`, `[VOCABULARY]`, `[OCR]`, `[SERVER]`.
 
-| Module | Prefix |
-|--------|--------|
-| Auth | `[AUTH]` |
-| Vocabulary | `[VOCABULARY]` |
-| OCR | `[OCR]` |
-| Server / Middleware | `[SERVER]` |
-
-**Examples:**
 ```go
-// Good
 logger.WithContext(ctx).Warn("[VOCABULARY] error fetching topics", zap.Error(err))
-logger.WithContext(ctx).Debug("[AUTH] rejected", zap.String("reason", "invalid token"))
-
-// Bad — missing prefix
-logger.WithContext(ctx).Error("error saving folder", zap.Error(err))
 ```
 
-## Error handling — Correct status code first, descriptive i18n key second
+- **Use cases**: `Warn`/`Info`/`Debug` only for non-error situations. Never `Error` — just create and return errors.
+- **Handlers**: No logging. Just `response.HandleError(c, err)`. Request logger middleware auto-logs 5xx.
 
-### Constructors are pure — logging happens at the handler layer
+## Error handling
 
-Error constructors (`InternalServerError`, `ServiceUnavailable`, etc.) are **pure functions** with no side effects. They do NOT log. Logging for server errors (500/503) happens once in the handler's `handleError` function, which:
-- Reads `domErr.Message()` for the i18n key
-- Reads `domErr.Unwrap()` for the cause
-- Logs with `[MODULE]` prefix + i18n key + cause
+### Flow
 
-This means:
-- **Use case layer**: Only creates and returns errors. No `logger.Error(...)` calls for error returns.
-- **Handler layer**: Single point of logging for all server errors. No duplicate logs possible.
-- **Tests**: Error creation has no side effects. No log noise.
+```
+Repo (raw error / nil) → Use case (wraps into AppError) → Handler (response.HandleError) → HTTP status + i18n
+```
 
-### Choosing the right constructor
+### Constructors
 
-- `BadRequest` (400) — Client sent bad data: invalid UUID, malformed JSON, FK violation (referencing non-existent ID)
-- `Unauthorized` (401) — Authentication failed or missing
-- `Forbidden` (403) — Authenticated but not allowed
-- `NotFound` (404) — The requested resource does not exist
-- `Conflict` (409) — Resource state conflict (duplicate, already exists)
-- `UnprocessableEntity` (422) — Request well-formed but fails validation (missing required field, invalid value range, etc.)
-- `InternalServerError` (500) — **Only** for truly unexpected system errors: DB connection lost, unhandled panic, unknown errors after all known types are filtered out
-- `ServiceUnavailable` (503) — External service is down (OCR service, SSO, circuit breaker open, etc.)
+**4xx — no cause:**
 
-**Never use `InternalServerError` as a default catch-all.** Before returning 500, ask: "Is this really a server-side system failure, or is it caused by bad client input?" FK violations, missing references, constraint errors → 400, not 500.
+| Constructor | When |
+|---|---|
+| `BadRequest(key)` 400 | Invalid input, malformed JSON, FK violation |
+| `Unauthorized(key)` 401 | Auth failed or missing |
+| `Forbidden(key)` 403 | Authenticated but not allowed |
+| `NotFound(key)` 404 | Resource doesn't exist |
+| `Conflict(key)` 409 | Duplicate / already exists |
+| `UnprocessableEntity(key)` 422 | Validation failure, domain entity errors |
 
-### Error message must be an i18n key
+**5xx — always carry cause:**
 
-Never use hardcoded English strings.
-- Bad: `sharederror.InternalServerError("failed to save vocabulary", err)`
-- Good: `sharederror.NotFound("vocabulary.not_found")`
-- Good: `sharederror.BadRequest("vocabulary.invalid_topic_id")`
+| Constructor | When |
+|---|---|
+| `InternalServerError(key, err)` 500 | Unexpected system errors only |
+| `ServiceUnavailable(key, err)` 503 | External service down, circuit breaker open |
 
-### Always check `IsAppError` before falling back to `InternalServerError`
+Never use 500 as catch-all. FK violations → 400. Domain validation → 422.
 
-Repos may return typed AppErrors (not-found, bad-request from FK violations). The use case must propagate those, not swallow them into 500:
+### Key: i18n key, not English
 
 ```go
-if err := repo.Save(ctx, entity); err != nil {
-    if _, ok := sharederror.IsAppError(err); ok {
-        return err  // propagate 400/404/etc. from repo
-    }
-    return sharederror.InternalServerError("entity.save_failed", err)
-}
+// Bad
+apperr.InternalServerError("failed to save", err)
+// Good
+apperr.NotFound("vocabulary.not_found")
 ```
 
-### No sentinels — only constructors
+### Repos: raw errors only, no AppError
 
-No sentinel variables (`ErrNotFound`, etc.). Always use constructors with i18n keys:
-- **Client errors (4xx)**: `BadRequest(key)`, `Unauthorized(key)`, `Forbidden(key)`, `NotFound(key)`, `Conflict(key)`, `UnprocessableEntity(key)` — no cause needed.
-- **Server errors (5xx)**: `InternalServerError(key, cause)`, `ServiceUnavailable(key, cause)` — always carry cause for handler-layer logging.
+- **Not found** → `(nil, nil)`. Use case checks `if result == nil` → `apperr.NotFound(key)`.
+- **Other errors** → raw error. Use case wraps → `apperr.InternalServerError(key, err)`.
 
-### `Error()` vs `Message()`
+### Domain validation errors
 
-- `Error()` returns `"CODE: i18n_key"` — for debug/logs, does NOT leak cause details.
-- `Message()` returns just the i18n key — for API response translation.
-- `Unwrap()` returns the underlying cause — for handler-layer logging.
+Domain uses `errors.New()` sentinels. Use cases map via mapper → `UnprocessableEntity(key)`.
 
-### Manual logging in use cases
+### AppError methods
 
-Only use `logger.WithContext(ctx).Warn(...)` or `.Info(...)` / `.Debug(...)` for **non-critical, non-error situations** (e.g., fetching optional related data fails but we continue). Always include `[MODULE]` prefix. Do NOT use `logger.Error(...)` in use cases — server error logging is handled by the handler layer.
+- `Error()` → `"NOT_FOUND: vocabulary.not_found"` (debug/logs)
+- `Message()` → `"vocabulary.not_found"` (i18n key for response)
+- `Unwrap()` → cause (5xx only)

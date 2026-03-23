@@ -20,7 +20,7 @@ func NewModule(db *gorm.DB, ocrEngines port.OCREngineRegistry) *Module {
 	topicRepo := repository.NewTopicRepository(db)
 	grammarRepo := repository.NewGrammarPointRepository(db)
 
-	vocabCmd := usecase.NewVocabularyCommand(vocabRepo)
+	vocabCmd := usecase.NewVocabularyCommand(vocabRepo, topicRepo, grammarRepo)
 	vocabQry := usecase.NewVocabularyQuery(vocabRepo, topicRepo, grammarRepo)
 	folderCmd := usecase.NewFolderCommand(folderRepo, vocabRepo)
 	folderQry := usecase.NewFolderQuery(folderRepo)
@@ -48,8 +48,7 @@ func (module *Module) RegisterRoutes(public, protected *gin.RouterGroup) {
 	protected.DELETE("/vocabularies/:id", module.handler.DeleteVocabulary)
 
 	// OCR
-	protected.POST("/vocabularies/ocr-scan", module.handler.ProcessOCRScan)
-	public.POST("/vocabularies/ocr-image", module.handler.ProcessOCRImage)
+	public.POST("/vocabularies/ocr-scan", module.handler.ProcessOCRScan)
 
 	// Admin import
 	protected.POST("/admin/vocabularies/import", module.handler.ImportVocabularies)

@@ -49,7 +49,11 @@ func NewRouter(
 
 	// Public routes with rate limiting
 	public := r.Group("/")
-	public.Use(middleware.RateLimitMiddleware(5, 10))
+	const (
+		publicRateLimitRPS   = 5
+		publicRateLimitBurst = 10
+	)
+	public.Use(middleware.RateLimitMiddleware(publicRateLimitRPS, publicRateLimitBurst))
 
 	// Protected routes
 	v1 := r.Group("/api/v1")
@@ -58,6 +62,10 @@ func NewRouter(
 	// Register modules
 	authModule.RegisterRoutes(public, v1)
 	vocabularyModule.RegisterRoutes(public, v1)
+
+	r.NoRoute(func(c *gin.Context) {
+		response.NotFound(c, "common.route_not_found")
+	})
 
 	return r
 }

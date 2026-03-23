@@ -11,57 +11,43 @@ myapp/
 │       └── main.go                    # Entry point, khởi tạo DI container
 │
 ├── internal/
-│   ├── auth/                          # Auth module
-│   │   ├── domain/                    # Entities (User)
+│   ├── auth/                          # Auth module (SSO via Prep platform)
+│   │   ├── domain/                    # Entities (User, PrepUser)
 │   │   ├── application/
 │   │   │   ├── port/
 │   │   │   │   ├── inbound.go         # AuthUseCasePort
-│   │   │   │   └── outbound.go        # UserRepositoryPort, TokenServicePort, PasswordServicePort, RefreshTokenStorePort
+│   │   │   │   └── outbound.go        # UserRepositoryPort, PrepUserServicePort
 │   │   │   ├── dto/                   # Request/Response DTOs
-│   │   │   └── usecase/               # AuthUseCase
+│   │   │   └── usecase/               # AuthUseCase (GetMe)
 │   │   ├── adapter/
 │   │   │   ├── handler/               # HTTP handlers (Gin)
-│   │   │   ├── repository/            # Postgres (User), Redis (RefreshToken)
-│   │   │   └── security/              # JWTService, BcryptPasswordService
+│   │   │   ├── repository/            # Postgres (User) + model/
+│   │   │   └── service/               # PrepUserService (Prep API HTTP client, circuit breaker)
 │   │   └── module.go                  # Module wiring + RegisterRoutes
 │   │
 │   ├── vocabulary/                    # Vocabulary module
-│   │   ├── domain/                    # Entities (Vocabulary, Folder)
+│   │   ├── domain/                    # Entities (Vocabulary, Folder, Topic, GrammarPoint)
 │   │   ├── application/
 │   │   │   ├── port/
-│   │   │   │   ├── inbound.go         # VocabularyCommand/QueryPort, FolderCommand/QueryPort
-│   │   │   │   └── outbound.go        # VocabularyRepositoryPort, FolderRepositoryPort
+│   │   │   │   ├── inbound.go         # VocabularyCommand/QueryPort, FolderCommand/QueryPort, TopicQueryPort, OCRCommandPort, ImportCommandPort
+│   │   │   │   └── outbound.go        # VocabularyRepositoryPort, FolderRepositoryPort, TopicRepositoryPort, GrammarPointRepositoryPort, OCRServicePort
 │   │   │   ├── dto/
-│   │   │   └── usecase/               # CQRS: vocabulary_command, vocabulary_query, folder_command, folder_query
+│   │   │   └── usecase/               # CQRS: vocabulary_command/query, folder_command/query, topic_query, ocr_command, import_command
 │   │   ├── adapter/
-│   │   │   ├── handler/
-│   │   │   └── repository/
-│   │   └── module.go
-│   │
-│   ├── learning/                      # Learning module
-│   │   ├── domain/
-│   │   │   ├── learning_card.go       # Entity + LearningMode constants
-│   │   │   └── service/
-│   │   │       └── scoring.go         # SM-2 domain service (review intervals, mastery reset)
-│   │   ├── application/
-│   │   │   ├── port/
-│   │   │   │   ├── inbound.go         # LearningCommand/QueryPort, ReviewCommand/QueryPort
-│   │   │   │   └── outbound.go        # LearningCardRepositoryPort
-│   │   │   ├── dto/
-│   │   │   └── usecase/               # CQRS: learning_command, learning_query, review_command, review_query
-│   │   ├── adapter/
-│   │   │   ├── handler/
-│   │   │   └── repository/
+│   │   │   ├── handler/               # HTTP handlers (vocabulary, folder, topic, OCR, import)
+│   │   │   ├── repository/            # Postgres repos (vocabulary, folder, topic, grammar_point) + model/
+│   │   │   └── service/               # OCR service (PaddleOCR HTTP adapter, circuit breaker)
 │   │   └── module.go
 │   │
 │   ├── shared/                        # Shared kernel
-│   │   ├── error/                     # AppError (codes: NOT_FOUND, INVALID_INPUT, etc.)
+│   │   ├── error/                     # AppError (codes: NOT_FOUND, BAD_REQUEST, UNAUTHORIZED, etc.)
 │   │   ├── logger/                    # Logger interface + Field constructors
 │   │   ├── ctxlog/                    # Context-aware log fields (request_id, trace_id)
-│   │   ├── i18n/                      # Translation engine (5 languages)
+│   │   ├── i18n/                      # Translation engine (5 languages: en, vi, zh, th, id)
 │   │   ├── middleware/                # Auth, CORS, i18n, Logger, RateLimit, Recovery, RequestID, Security
-│   │   ├── response/                  # APIResponse helpers (Success, BadRequest, ValidationBadRequest, etc.)
-│   │   └── dto/                       # PaginationRequest/PaginatedResponse
+│   │   ├── response/                  # APIResponse helpers (Success, HandleError, ValidationBadRequest)
+│   │   ├── dto/                       # PaginationRequest/PaginatedResponse
+│   │   └── common/                    # JSONB helper type
 │   │
 │   ├── server/                        # HTTP server + router
 │   │   ├── router.go                  # Route registration + health check
@@ -71,7 +57,7 @@ myapp/
 │       ├── di/                        # Container (NewApp), persistence init, observability init
 │       ├── config/                    # Viper config (auth, db, redis, log, circuitbreaker, observability)
 │       ├── database/                  # GORM postgres connection + custom GORM logger
-│       ├── circuitbreaker/            # gobreaker wrapper + registry
+│       ├── circuitbreaker/            # gobreaker v2 wrapper + registry
 │       ├── logging/                   # Zap adapter (console, daily file, async OTLP)
 │       ├── redis/                     # Redis client init
 │       ├── sentry/                    # Sentry error tracking
@@ -80,6 +66,7 @@ myapp/
 ├── resources/
 │   └── i18n/                          # Translation files (en, vi, th, zh, id)
 │
+├── migrations/                        # SQL migration files (golang-migrate)
 ├── go.mod
 ├── go.sum
 ├── Makefile
@@ -91,7 +78,7 @@ HTTP Request
     ↓
 [Server] router.go → module.RegisterRoutes()
     ↓
-[Middleware] RequestID → Language → Auth → RateLimit → Logger → Recovery
+[Middleware] SecurityHeaders → CORS → RequestID → OTEL → RequestLogger → Language → Recovery
     ↓
 [Adapter] handler/
     ↓  calls interface
@@ -101,7 +88,7 @@ HTTP Request
     ↓  calls interface
 [Application] port/outbound.go (output port)
     ↓  implemented by
-[Adapter] repository/ | security/
+[Adapter] repository/ | service/
     ↓
 Database / Redis / External Services
 ```
@@ -110,18 +97,20 @@ Database / Redis / External Services
 
 ### Domain Layer (`<module>/domain/`)
 Đây là lớp trong cùng, chứa các quy tắc nghiệp vụ cốt lõi.
-- **Entities**: Các đối tượng có định danh (Identity): `User`, `Vocabulary`, `Folder`, `LearningCard`.
-- **Domain Constants**: `LearningMode`, `MemoryState`, mode weights.
-- **Domain Services**: Logic nghiệp vụ không thuộc entity cụ thể (ví dụ: `learning/domain/service/scoring.go` — SM-2 algorithm).
+- **Entities**: Các đối tượng có định danh (Identity).
+  - Auth: `User` (local user với PrepUserID), `PrepUser` (value object từ Prep platform).
+  - Vocabulary: `Vocabulary` (Hanzi, pinyin, meanings, HSK level 1-9, examples, radicals, stroke data), `Folder` (user-owned collection), `Topic` (global topic với translations CN/VI/EN và slug), `GrammarPoint` (grammar pattern với code, example, rule, HSK level).
 - **Entity Errors**: Lỗi đặc thù của entity (ví dụ: `ErrHanziRequired`, `ErrFolderNameRequired`).
 - **UUID v7**: Tất cả entity IDs dùng `uuid.Must(uuid.NewV7())` — time-ordered, tốt cho DB indexing.
 - **Đặc điểm**: Không phụ thuộc vào bất kỳ lớp nào khác bên ngoài. Không import framework, ORM, hay crypto libraries.
 
 ### Application Layer (`<module>/application/`)
 Lớp này điều phối các hoạt động của ứng dụng.
-- **Inbound Ports (`port/inbound.go`)**: Interfaces cho handlers gọi usecases. CQRS split: Command ports (write) và Query ports (read).
-- **Outbound Ports (`port/outbound.go`)**: Interfaces cho usecases gọi repositories và services (PasswordServicePort, TokenServicePort, etc.).
-- **Use Cases (`usecase/`)**: Triển khai các Inbound Ports. Vocabulary và Learning modules dùng CQRS (tách command/query files riêng).
+- **Inbound Ports (`port/inbound.go`)**: Interfaces cho handlers gọi usecases. Vocabulary module dùng CQRS split: Command ports (write) và Query ports (read).
+- **Outbound Ports (`port/outbound.go`)**: Interfaces cho usecases gọi repositories và external services (PrepUserServicePort, OCRServicePort, etc.).
+- **Use Cases (`usecase/`)**: Triển khai các Inbound Ports.
+  - Auth: `AuthUseCase` (GetMe — SSO profile via Prep).
+  - Vocabulary: CQRS — `VocabularyCommand`, `VocabularyQuery`, `FolderCommand`, `FolderQuery`, `TopicQuery`, `OCRCommand`, `ImportCommand`.
 - **DTOs (`dto/`)**: Data Transfer Objects với Gin binding tags cho validation (`required`, `email`, `min`, `max`).
 - **Đặc điểm**: Chỉ phụ thuộc vào Domain Layer.
 
@@ -129,7 +118,9 @@ Lớp này điều phối các hoạt động của ứng dụng.
 Chứa các implementations cụ thể để kết nối Core với thế giới bên ngoài.
 - **Handler (Driving)**: Nhận request từ bên ngoài. Bind JSON/Query → validate → gọi usecase qua inbound port. Validation errors trả field-level details qua `ValidationBadRequest()`.
 - **Repository (Driven)**: GORM repositories implement outbound ports. Entity ↔ Model tách biệt với `toEntity()`/`fromEntity()`. Timestamps sync back sau Create/Save.
-- **Security (Driven)**: JWT token service, bcrypt password service — implement outbound ports.
+- **Service (Driven)**: External service adapters implement outbound ports.
+  - Auth: `PrepUserService` — HTTP client gọi Prep API để validate token, có circuit breaker.
+  - Vocabulary: `OCRService` — HTTP client gọi PaddleOCR, dùng `OCREngineRegistry` registry pattern (extensible cho Google Vision, Baidu).
 - **Đặc điểm**: Phụ thuộc vào Application Layer (implement các Ports).
 
 ### Infrastructure Layer (`internal/infrastructure/`)
@@ -138,13 +129,15 @@ Cung cấp các công cụ và cấu hình để chạy ứng dụng.
 - **Database**: GORM postgres connection + custom GORM logger (slow query detection >200ms).
 - **DI**: `container.go` → `initPersistence()` → module factories. Manual constructor injection.
 - **Observability**: Zap structured logging + OTEL tracing + Sentry error tracking.
-- **Resilience**: Circuit breaker (gobreaker) registry cho persistence layer.
+- **Resilience**: Circuit breaker (gobreaker v2) registry — used by PrepUserService và OCRService.
 
 ### Shared Kernel (`internal/shared/`)
 Code dùng chung giữa các modules.
-- **AppError**: Error codes layered: entity errors → `ErrInvalidInput`/`ErrNotFound` (usecase) → HTTP status + i18n key (handler).
-- **Response**: `Success()`, `SuccessWithMetadata()` (pagination), `ValidationBadRequest()` (field-level validation errors).
-- **Middleware**: Auth (JWT), CORS, i18n (language detection), Request Logger, Rate Limiting, Recovery (panic → Sentry), RequestID (UUID v7), Security headers.
+- **AppError**: Error codes layered: entity errors → `ErrInvalidInput`/`ErrNotFound` (usecase) → HTTP status + i18n key (handler via `response.HandleError()`).
+- **Response**: `Success()`, `SuccessWithMetadata()` (pagination), `HandleError()` (map AppError.Code → HTTP status), `ValidationBadRequest()` (field-level validation errors).
+- **Middleware**: SecurityHeaders, CORS, RequestID (UUID v7), OTEL (conditional), RequestLogger, Language (detect từ query/header), Recovery (panic → Sentry), RateLimit (public routes), Auth (JWT, protected routes).
+- **Common**: JSONB helper type cho PostgreSQL JSON columns.
+- **DTO**: `PaginationRequest`, `PaginationMeta`, `PaginatedResponse`.
 
 ---
 
@@ -153,20 +146,22 @@ Code dùng chung giữa các modules.
 **Ví dụ: Tạo từ vựng mới (Create Vocabulary)**
 
 1.  **Client Request**:
-    - Client gửi HTTP POST request tới `/api/vocabularies` với JSON body (hanzi, pinyin, meaning).
+    - Client gửi HTTP POST request tới `/api/v1/vocabularies` với JSON body (hanzi, pinyin, meaning).
     - Request đi kèm Header `Authorization: Bearer <token>`.
 
 2.  **Infrastructure (Server)**:
     - `http.Server` nhận request.
     - Request đi qua **Router** (`gin.Engine`) và middleware chain.
 
-3.  **Middleware Chain**:
+3.  **Middleware Chain** (theo thứ tự thực thi):
+    - `SecurityHeadersMiddleware` — set security headers (X-Content-Type-Options, etc.).
+    - `CORSMiddleware` — xử lý CORS.
     - `RequestIDMiddleware` — gán UUID v7 request ID, propagate qua context.
-    - `LanguageMiddleware` — detect ngôn ngữ từ query/header.
-    - `AuthMiddleware` — validate JWT token, set `user_id` vào context.
-    - `RateLimitMiddleware` — kiểm tra rate limit.
+    - `otelgin.Middleware` — OpenTelemetry tracing (conditional, khi OTLP_ENDPOINT được set).
     - `RequestLoggerMiddleware` — log request/response (skip sensitive paths).
+    - `LanguageMiddleware` — detect ngôn ngữ từ query param > X-Lang header > Accept-Language header.
     - `RecoveryMiddleware` — catch panic, report Sentry.
+    - `AuthMiddleware` — validate JWT token, set `user_id` vào context (chỉ áp dụng cho `/api/v1/*`).
 
 4.  **Adapter Layer (Handler)**:
     - **Handler** (`VocabularyHandler.CreateVocabulary`) nhận request.
@@ -184,7 +179,7 @@ Code dùng chung giữa các modules.
 6.  **Adapter Layer (Repository)**:
     - **Repository** (`VocabularyRepository`) nhận Entity.
     - **Mapping**: `fromVocabEntity()` chuyển Domain Entity sang DB Model.
-    - **Database Execution**: GORM INSERT vào PostgreSQL (qua circuit breaker).
+    - **Database Execution**: GORM INSERT vào PostgreSQL.
     - **Timestamp sync**: GORM-managed CreatedAt/UpdatedAt sync back vào entity pointer.
     - Trả về kết quả cho Use Case.
 
@@ -207,8 +202,8 @@ Client (HTTP)
 [Infrastructure] HTTP Server / Router
    │
    ▼
-[Middleware] RequestID → Language → Auth → RateLimit → Logger → Recovery
-   │
+[Middleware] SecurityHeaders → CORS → RequestID → OTEL → RequestLogger → Language → Recovery
+   │                                                            (+ RateLimit on public, + Auth on /api/v1)
    ▼
 [Adapter] Handler (ShouldBindJSON → ValidationBadRequest if fail)
    │         (DTO)
@@ -216,8 +211,8 @@ Client (HTTP)
 [Application] Use Case (Business Logic, Error mapping)
    │         (Entity)
    ▼
-[Adapter] Repository (Entity ↔ Model mapping, Circuit Breaker)
-   │         (DB Model)
+[Adapter] Repository / Service (Entity ↔ Model mapping)
+   │         (DB Model / HTTP Request)
    ▼
-[Infrastructure] Database (PostgreSQL) / Redis
+[Infrastructure] Database (PostgreSQL) / Redis / External APIs (Prep, PaddleOCR)
 ```

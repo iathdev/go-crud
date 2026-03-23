@@ -3,14 +3,11 @@ package handler
 import (
 	"errors"
 	"learning-go/internal/auth/application/port"
-	sharederror "learning-go/internal/shared/error"
-	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 type AuthHandler struct {
@@ -33,7 +30,7 @@ func (handler *AuthHandler) GetMe(c *gin.Context) {
 
 	res, err := handler.authUseCase.GetMe(c.Request.Context(), userID, firstLogin)
 	if err != nil {
-		handleAuthError(c, err)
+		response.HandleError(c, err)
 		return
 	}
 
@@ -46,34 +43,4 @@ func getUserID(c *gin.Context) (uuid.UUID, error) {
 		return uuid.Nil, errors.New("user_id not in context")
 	}
 	return uuid.Parse(userIDStr.(string))
-}
-
-func handleAuthError(c *gin.Context, err error) {
-	var domErr *sharederror.AppError
-	if errors.As(err, &domErr) {
-		msg := domErr.Message()
-		switch domErr.Code() {
-		case sharederror.CodeBadRequest:
-			response.BadRequest(c, msg)
-		case sharederror.CodeUnauthorized:
-			response.Unauthorized(c, msg)
-		case sharederror.CodeForbidden:
-			response.Forbidden(c, msg)
-		case sharederror.CodeNotFound:
-			response.NotFound(c, msg)
-		case sharederror.CodeConflict:
-			response.Conflict(c, msg)
-		case sharederror.CodeUnprocessableEntity:
-			response.UnprocessableEntity(c, msg)
-		case sharederror.CodeServiceUnavailable:
-			logger.WithContext(c.Request.Context()).Error("[AUTH] "+msg, zap.Error(domErr.Unwrap()))
-			response.ServiceUnavailable(c, msg)
-		default:
-			logger.WithContext(c.Request.Context()).Error("[AUTH] "+msg, zap.Error(domErr.Unwrap()))
-			response.InternalServerError(c, msg)
-		}
-		return
-	}
-	logger.WithContext(c.Request.Context()).Error("[AUTH] unhandled error", zap.Error(err))
-	response.InternalServerError(c, "")
 }

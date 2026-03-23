@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
 )
@@ -18,10 +18,7 @@ func NewTopicQuery(topicRepo port.TopicRepositoryPort) port.TopicQueryPort {
 func (useCase *TopicQuery) ListTopics(ctx context.Context) ([]*vdto.TopicResponse, error) {
 	topics, err := useCase.topicRepo.FindAll(ctx)
 	if err != nil {
-		if _, ok := sharederror.IsAppError(err); ok {
-			return nil, err
-		}
-		return nil, sharederror.InternalServerError("topic.query_failed", err)
+		return nil, apperr.InternalServerError("topic.query_failed", err)
 	}
 
 	result := make([]*vdto.TopicResponse, 0, len(topics))

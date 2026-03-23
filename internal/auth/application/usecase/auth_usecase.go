@@ -4,7 +4,7 @@ import (
 	"context"
 	"learning-go/internal/auth/application/dto"
 	"learning-go/internal/auth/application/port"
-	sharederror "learning-go/internal/shared/error"
+	apperr "learning-go/internal/shared/error"
 
 	"github.com/google/uuid"
 )
@@ -20,10 +20,10 @@ func NewAuthUseCase(userRepo port.UserRepositoryPort) port.AuthUseCasePort {
 func (uc *AuthUseCase) GetMe(ctx context.Context, userID uuid.UUID, isFirstLogin bool) (*dto.MeResponse, error) {
 	user, err := uc.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, sharederror.InternalServerError("auth.find_user_failed", err)
+		return nil, apperr.InternalServerError("auth.find_user_failed", err)
 	}
 	if user == nil {
-		return nil, sharederror.NotFound("auth.user_not_found")
+		return nil, apperr.NotFound("auth.user_not_found")
 	}
 
 	return &dto.MeResponse{

@@ -27,7 +27,7 @@ func initObservability(cfg *config.Config) (*observability, error) {
 	ctx := context.Background()
 	tracerShutdown, err := tracing.InitTracer(ctx, cfg)
 	if err != nil {
-		logger.Warn("failed to init tracer, continuing without tracing", zap.Error(err))
+		logger.Warn("[SERVER] failed to init tracer, continuing without tracing", zap.Error(err))
 		tracerShutdown = func(context.Context) error { return nil }
 	}
 
@@ -36,7 +36,7 @@ func initObservability(cfg *config.Config) (*observability, error) {
 
 	sentryCleanup, err := infrasentry.Init(cfg)
 	if err != nil {
-		logger.Warn("failed to init sentry, continuing without error tracking", zap.Error(err))
+		logger.Warn("[SERVER] failed to init sentry, continuing without error tracking", zap.Error(err))
 		sentryCleanup = func() {}
 	}
 

@@ -2,6 +2,7 @@ paddlepaddle
 paddleocr
 fastapi
 uvicorn[standard]
-python-multipart
+pydantic
 jieba
 pypinyin
+urllib3<2

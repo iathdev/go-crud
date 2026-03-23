@@ -12,6 +12,13 @@
   "common.too_many_requests": "Terlalu banyak permintaan, silakan coba lagi nanti",
   "common.deleted_successfully": "Berhasil dihapus",
   "common.service_unavailable": "Layanan sementara tidak tersedia, silakan coba lagi nanti",
-  "common.route_not_found": "Rute tidak ditemukan",
-  "common.method_not_allowed": "Metode tidak diizinkan"
+  "common.route_not_found": "Endpoint yang diminta tidak ditemukan",
+  "common.method_not_allowed": "Metode tidak diizinkan",
+  "ocr.image_download_failed": "Gagal mengunduh gambar. Pastikan URL valid dan gambar berformat JPEG atau PNG di bawah 5MB",
+  "ocr.service_connection_failed": "Layanan OCR sementara tidak tersedia, silakan coba lagi nanti",
+  "ocr.service_error": "Layanan OCR mengalami kesalahan, silakan coba lagi nanti",
+  "ocr.service_invalid_response": "Layanan OCR mengembalikan respons tidak valid, silakan coba lagi nanti",
+  "auth.sso_connection_failed": "Layanan otentikasi sementara tidak tersedia, silakan coba lagi nanti",
+  "auth.sso_service_error": "Layanan otentikasi mengalami kesalahan, silakan coba lagi nanti",
+  "auth.sso_invalid_response": "Layanan otentikasi mengembalikan respons tidak valid, silakan coba lagi nanti"
 }

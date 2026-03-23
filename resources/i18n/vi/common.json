@@ -12,6 +12,13 @@
   "common.too_many_requests": "Quá nhiều yêu cầu, vui lòng thử lại sau",
   "common.deleted_successfully": "Xoá thành công",
   "common.service_unavailable": "Dịch vụ tạm thời không khả dụng, vui lòng thử lại sau",
-  "common.route_not_found": "Không tìm thấy đường dẫn",
-  "common.method_not_allowed": "Phương thức không được hỗ trợ"
+  "common.route_not_found": "Đường dẫn yêu cầu không tồn tại",
+  "common.method_not_allowed": "Phương thức không được hỗ trợ",
+  "ocr.image_download_failed": "Không thể tải ảnh. Vui lòng kiểm tra URL và đảm bảo ảnh là JPEG hoặc PNG dưới 5MB",
+  "ocr.service_connection_failed": "Dịch vụ OCR tạm thời không khả dụng, vui lòng thử lại sau",
+  "ocr.service_error": "Dịch vụ OCR gặp lỗi, vui lòng thử lại sau",
+  "ocr.service_invalid_response": "Dịch vụ OCR trả về dữ liệu không hợp lệ, vui lòng thử lại sau",
+  "auth.sso_connection_failed": "Dịch vụ xác thực tạm thời không khả dụng, vui lòng thử lại sau",
+  "auth.sso_service_error": "Dịch vụ xác thực gặp lỗi, vui lòng thử lại sau",
+  "auth.sso_invalid_response": "Dịch vụ xác thực trả về dữ liệu không hợp lệ, vui lòng thử lại sau"
 }
