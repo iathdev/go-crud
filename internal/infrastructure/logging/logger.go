@@ -90,5 +90,8 @@ func buildEncoder(cfg *config.Config) zapcore.Encoder {
 	if cfg.GetLogFormat() == "text" {
 		return zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
 	}
-	return zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+	encoderCfg := zap.NewProductionEncoderConfig()
+	encoderCfg.TimeKey = "timestamp"
+	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+	return zapcore.NewJSONEncoder(encoderCfg)
 }

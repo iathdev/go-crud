@@ -62,6 +62,13 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 			zap.Int("status", status),
 			zap.Duration("latency", latency),
 			zap.String("client_ip", common.ResolveClientIP(c.Request)),
+			zap.String("user_agent", c.Request.UserAgent()),
+			zap.String("protocol", c.Request.Proto),
+			zap.Int("response_size", c.Writer.Size()),
+		}
+
+		if userID, exists := c.Get("user_id"); exists {
+			fields = append(fields, zap.String("user_id", userID.(string)))
 		}
 
 		if requestBody != "" {
