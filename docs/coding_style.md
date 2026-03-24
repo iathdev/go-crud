@@ -17,7 +17,6 @@ logger.Warn(ctx, "[VOCABULARY] error fetching topics", zap.Error(err))
 
 - **4xx errors**: Do NOT log. Just return `AppError`.
 - **5xx errors**: Log when the context is important for debugging (external service failures, unexpected states). Not every 5xx needs a log — simple DB errors are already visible in GORM logger.
-- **Non-fatal degradation**: MUST log with `Warn` when an error is swallowed and processing continues.
 - **External service calls**: Log failures with extra context (status code, endpoint) before returning error.
 - **Infrastructure/startup**: Log lifecycle events (`Info`) and init failures (`Warn`).
 

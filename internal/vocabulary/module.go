@@ -33,33 +33,35 @@ func NewModule(db *gorm.DB) *Module {
 }
 
 func (module *Module) RegisterRoutes(public, protected *gin.RouterGroup) {
-	// Topics (protected)
-	protected.GET("/topics", module.handler.ListTopics)
+	v1 := protected.Group("/v1")
+
+	// Topics
+	v1.GET("/topics", module.handler.ListTopics)
 
 	// Vocabulary CRUD
-	protected.POST("/vocabularies", module.handler.CreateVocabulary)
-	protected.GET("/vocabularies/:id", module.handler.GetVocabulary)
-	protected.GET("/vocabularies/:id/detail", module.handler.GetVocabularyDetail)
-	protected.GET("/vocabularies/hsk/:level", module.handler.ListByHSKLevel)
-	protected.GET("/vocabularies/topic/:slug", module.handler.ListByTopic)
-	protected.GET("/vocabularies/search", module.handler.SearchVocabulary)
-	protected.PUT("/vocabularies/:id", module.handler.UpdateVocabulary)
-	protected.DELETE("/vocabularies/:id", module.handler.DeleteVocabulary)
+	v1.POST("/vocabularies", module.handler.CreateVocabulary)
+	v1.GET("/vocabularies/:id", module.handler.GetVocabulary)
+	v1.GET("/vocabularies/:id/detail", module.handler.GetVocabularyDetail)
+	v1.GET("/vocabularies/hsk/:level", module.handler.ListByHSKLevel)
+	v1.GET("/vocabularies/topic/:slug", module.handler.ListByTopic)
+	v1.GET("/vocabularies/search", module.handler.SearchVocabulary)
+	v1.PUT("/vocabularies/:id", module.handler.UpdateVocabulary)
+	v1.DELETE("/vocabularies/:id", module.handler.DeleteVocabulary)
 
 	// OCR
-	protected.POST("/vocabularies/ocr-scan", module.handler.ProcessOCRScan)
+	v1.POST("/vocabularies/ocr-scan", module.handler.ProcessOCRScan)
 
 	// Admin import
-	protected.POST("/admin/vocabularies/import", module.handler.ImportVocabularies)
+	v1.POST("/admin/vocabularies/import", module.handler.ImportVocabularies)
 
 	// Folder CRUD
-	protected.POST("/folders", module.handler.CreateFolder)
-	protected.GET("/folders", module.handler.ListFolders)
-	protected.PUT("/folders/:id", module.handler.UpdateFolder)
-	protected.DELETE("/folders/:id", module.handler.DeleteFolder)
+	v1.POST("/folders", module.handler.CreateFolder)
+	v1.GET("/folders", module.handler.ListFolders)
+	v1.PUT("/folders/:id", module.handler.UpdateFolder)
+	v1.DELETE("/folders/:id", module.handler.DeleteFolder)
 
 	// Folder-Vocabulary operations
-	protected.POST("/folders/:id/vocabularies", module.handler.AddVocabularyToFolder)
-	protected.DELETE("/folders/:id/vocabularies/:vocab_id", module.handler.RemoveVocabularyFromFolder)
-	protected.GET("/folders/:id/vocabularies", module.handler.ListFolderVocabularies)
+	v1.POST("/folders/:id/vocabularies", module.handler.AddVocabularyToFolder)
+	v1.DELETE("/folders/:id/vocabularies/:vocab_id", module.handler.RemoveVocabularyFromFolder)
+	v1.GET("/folders/:id/vocabularies", module.handler.ListFolderVocabularies)
 }

@@ -18,23 +18,48 @@ func NewAuthUseCase(userRepo port.UserRepositoryPort) port.AuthUseCasePort {
 	return &AuthUseCase{userRepo: userRepo}
 }
 
-func (uc *AuthUseCase) GetMe(ctx context.Context, userID uuid.UUID, prepUser *domain.PrepUser) (*dto.MeResponse, error) {
-	user, err := uc.userRepo.FindByID(ctx, userID)
+func (useCase *AuthUseCase) GetMe(ctx context.Context, userID uuid.UUID, prepUser *domain.PrepUser) (*dto.AuthMeResponse, error) {
+	user, err := useCase.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, apperr.InternalServerError("auth.find_user_failed", err)
+		return nil, apperr.InternalServerError("auth.internal_error", err)
 	}
 	if user == nil {
-		return nil, apperr.NotFound("auth.user_not_found")
+		return nil, apperr.NotFound("auth.not_found")
 	}
 
-	// Prep is source of truth for core profile fields; local DB provides app-specific fields
-	return &dto.MeResponse{
-		ID:           user.ID.String(),
-		PrepUserID:   prepUser.PrepUserID,
-		Name:         prepUser.Name,
-		Email:        prepUser.Email,
-		IsFirstLogin: prepUser.IsFirstLogin,
-		CreatedAt:    user.CreatedAt,
-		UpdatedAt:    user.UpdatedAt,
+	return &dto.AuthMeResponse{
+		ID:                  user.ID.String(),
+		PrepUserID:          prepUser.PrepUserID,
+		Name:                prepUser.Name,
+		Email:               prepUser.Email,
+		IsFirstLogin:        prepUser.IsFirstLogin,
+		ForceUpdatePassword: prepUser.ForceUpdatePassword,
+		CreatedAt:           user.CreatedAt,
+		UpdatedAt:           user.UpdatedAt,
 	}, nil
+}
+
+func (useCase *AuthUseCase) UpsertFromPrepUser(ctx context.Context, prepUser *domain.PrepUser) (*domain.User, error) {
+	existing, err := useCase.userRepo.FindByPrepUserID(ctx, prepUser.PrepUserID)
+	if err != nil {
+		return nil, apperr.InternalServerError("auth.internal_error", err)
+	}
+
+	if existing == nil {
+		user := domain.NewUser(prepUser.PrepUserID, prepUser.Email, prepUser.Name)
+		if err := useCase.userRepo.Upsert(ctx, user); err != nil {
+			return nil, apperr.InternalServerError("auth.internal_error", err)
+		}
+		return user, nil
+	}
+
+	if existing.Email != prepUser.Email || existing.Name != prepUser.Name {
+		existing.Email = prepUser.Email
+		existing.Name = prepUser.Name
+		if err := useCase.userRepo.Update(ctx, existing); err != nil {
+			return nil, apperr.InternalServerError("auth.internal_error", err)
+		}
+	}
+
+	return existing, nil
 }

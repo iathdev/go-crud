@@ -75,7 +75,15 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 			fields = append(fields, zap.String("body", requestBody))
 		}
 
-		logger.WithContext(ctx).Info("[SERVER] http_request", fields...)
+		log := logger.WithContext(ctx)
+		switch {
+		case status >= 500:
+			log.Error("[SERVER] http_request", fields...)
+		case status >= 400:
+			log.Warn("[SERVER] http_request", fields...)
+		default:
+			log.Info("[SERVER] http_request", fields...)
+		}
 	}
 }
 

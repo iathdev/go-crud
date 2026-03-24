@@ -12,5 +12,5 @@
   "common.too_many_requests": "Too many requests, please try again later",
   "common.deleted_successfully": "Deleted successfully",
   "common.service_unavailable": "Service temporarily unavailable, please try again later",
-  "common.route_not_found": "The requested endpoint does not exist"
+  "common.route_not_found": "Route not found"
 }

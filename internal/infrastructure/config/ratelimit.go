@@ -7,14 +7,14 @@ type RateLimitConfig struct {
 
 func (config *Config) GetRateLimitRPS() float64 {
 	if config.RateLimitRPS == 0 {
-		return 5
+		return 20
 	}
 	return config.RateLimitRPS
 }
 
 func (config *Config) GetRateLimitBurst() int {
 	if config.RateLimitBurst == 0 {
-		return 10
+		return 50
 	}
 	return config.RateLimitBurst
 }
