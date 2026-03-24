@@ -24,7 +24,7 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestNewPrepUser(t *testing.T) {
-	prepUser := NewPrepUser(446416, "test@example.com", "Test User")
+	prepUser := NewPrepUser(446416, "test@example.com", "Test User", true)
 
 	if prepUser.PrepUserID != 446416 {
 		t.Errorf("expected prep user id 446416, got %d", prepUser.PrepUserID)
@@ -34,5 +34,8 @@ func TestNewPrepUser(t *testing.T) {
 	}
 	if prepUser.Name != "Test User" {
 		t.Errorf("expected name Test User, got %s", prepUser.Name)
+	}
+	if !prepUser.IsFirstLogin {
+		t.Error("expected is_first_login to be true")
 	}
 }

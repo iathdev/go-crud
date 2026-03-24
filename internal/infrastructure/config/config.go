@@ -12,6 +12,7 @@ type Config struct {
 	LogConfig            `mapstructure:",squash"`
 	ObservabilityConfig  `mapstructure:",squash"`
 	RedisConfig          `mapstructure:",squash"`
+	RateLimitConfig      `mapstructure:",squash"`
 	AuthConfig           `mapstructure:",squash"`
 	OCRConfig            `mapstructure:",squash"`
 }

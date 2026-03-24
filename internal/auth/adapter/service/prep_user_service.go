@@ -16,9 +16,10 @@ import (
 )
 
 type PrepUserService struct {
-	baseURL string
-	client  *http.Client
-	breaker *circuitbreaker.Breaker
+	baseURL    string
+	meEndpoint string
+	client     *http.Client
+	breaker    *circuitbreaker.Breaker
 }
 
 // prepMeResponse maps the response from GET /auth/api/v1.1/auth/me
@@ -34,17 +35,18 @@ type prepMeData struct {
 	IsFirstLogin bool   `json:"is_first_login"`
 }
 
-func NewPrepUserService(baseURL string, breaker *circuitbreaker.Breaker) port.PrepUserServicePort {
+func NewPrepUserService(baseURL string, meEndpoint string, timeout time.Duration, breaker *circuitbreaker.Breaker) port.PrepUserServicePort {
 	return &PrepUserService{
-		baseURL: baseURL,
-		client:  &http.Client{Timeout: 10 * time.Second},
-		breaker: breaker,
+		baseURL:    baseURL,
+		meEndpoint: meEndpoint,
+		client:     &http.Client{Timeout: timeout},
+		breaker:    breaker,
 	}
 }
 
 func (service *PrepUserService) ValidateToken(ctx context.Context, token string) (*domain.PrepUser, error) {
 	result, err := service.breaker.Execute(func() (any, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, service.baseURL+"/auth/api/v1.1/auth/me", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, service.baseURL+service.meEndpoint, nil)
 		if err != nil {
 			return nil, apperr.InternalServerError("common.internal_server_error", err)
 		}
@@ -72,7 +74,7 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 			return nil, apperr.ServiceUnavailable("auth.sso_invalid_response", err)
 		}
 
-		return domain.NewPrepUser(body.Data.ID, body.Data.Email, body.Data.Name), nil
+		return domain.NewPrepUser(body.Data.ID, body.Data.Email, body.Data.Name, body.Data.IsFirstLogin), nil
 	})
 	if err != nil {
 		return nil, err

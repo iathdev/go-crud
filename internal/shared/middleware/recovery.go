@@ -13,7 +13,7 @@ import (
 
 func RecoveryMiddleware() gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-		logger.WithContext(c.Request.Context()).Error("[SERVER] panic recovered",
+		logger.Error(c.Request.Context(), "[SERVER] panic recovered",
 			zap.Any("panic", recovered),
 			zap.String("stack", string(debug.Stack())),
 			zap.String("path", c.Request.URL.Path),

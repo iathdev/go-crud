@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"learning-go/internal/infrastructure/config"
-	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -26,7 +25,7 @@ func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
 		DSN:                  dsn,
 		PreferSimpleProtocol: true,
 	}), &gorm.Config{
-		Logger: NewGormLogger(),
+		Logger: NewGormLogger(cfg.GetDBSlowThreshold()),
 	})
 	if err != nil {
 		return nil, err
@@ -44,6 +43,6 @@ func NewPostgresDB(cfg *config.Config) (*gorm.DB, error) {
 func configurePool(sqlDB *sql.DB, cfg *config.Config) {
 	sqlDB.SetMaxOpenConns(cfg.GetDBMaxOpenConns())
 	sqlDB.SetMaxIdleConns(cfg.GetDBMaxIdleConns())
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.GetDBConnMaxLifetime()) * time.Minute)
-	sqlDB.SetConnMaxIdleTime(time.Duration(cfg.GetDBConnMaxIdleTime()) * time.Minute)
+	sqlDB.SetConnMaxLifetime(cfg.GetDBConnMaxLifetime())
+	sqlDB.SetConnMaxIdleTime(cfg.GetDBConnMaxIdleTime())
 }

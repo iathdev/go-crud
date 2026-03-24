@@ -25,7 +25,7 @@ func NewModule(db *gorm.DB, cfg *config.Config) *Module {
 	breaker := circuitbreaker.NewBreaker(circuitbreaker.BreakerConfig{
 		Name: "prep-user-service",
 	}, nil)
-	prepUserService := service.NewPrepUserService(cfg.PrepUserServiceURL, breaker)
+	prepUserService := service.NewPrepUserService(cfg.PrepUserServiceURL, cfg.GetPrepMeEndpoint(), cfg.GetPrepHTTPClientTimeout(), breaker)
 
 	authUseCase := usecase.NewAuthUseCase(userRepo)
 	authHandler := handler.NewAuthHandler(authUseCase)

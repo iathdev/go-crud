@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"learning-go/internal/auth/application/port"
+	"learning-go/internal/auth/domain"
 	"learning-go/internal/shared/response"
 	"net/http"
 
@@ -25,10 +26,9 @@ func (handler *AuthHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	isFirstLogin, _ := c.Get("is_first_login")
-	firstLogin, _ := isFirstLogin.(bool)
+	prepUser, _ := c.Get("prep_user")
 
-	res, err := handler.authUseCase.GetMe(c.Request.Context(), userID, firstLogin)
+	res, err := handler.authUseCase.GetMe(c.Request.Context(), userID, prepUser.(*domain.PrepUser))
 	if err != nil {
 		response.HandleError(c, err)
 		return

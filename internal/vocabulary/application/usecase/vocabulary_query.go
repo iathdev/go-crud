@@ -67,7 +67,7 @@ func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id stri
 	var topicResponses []vdto.TopicResponse
 	topics, err := useCase.findVocabTopics(ctx, uuidID)
 	if err != nil {
-		logger.WithContext(ctx).Warn("[VOCABULARY] error fetching topics for vocabulary", zap.Error(err))
+		logger.Warn(ctx, "[VOCABULARY] error fetching topics for vocabulary", zap.Error(err))
 		topicResponses = []vdto.TopicResponse{}
 	} else {
 		topicResponses = make([]vdto.TopicResponse, 0, len(topics))
@@ -80,7 +80,7 @@ func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id stri
 	var gpResponses []vdto.GrammarPointResponse
 	grammarPoints, err := useCase.grammarRepo.FindByVocabularyID(ctx, uuidID)
 	if err != nil {
-		logger.WithContext(ctx).Warn("[VOCABULARY] error fetching grammar points for vocabulary", zap.Error(err))
+		logger.Warn(ctx, "[VOCABULARY] error fetching grammar points for vocabulary", zap.Error(err))
 		gpResponses = []vdto.GrammarPointResponse{}
 	} else {
 		gpResponses = make([]vdto.GrammarPointResponse, 0, len(grammarPoints))
