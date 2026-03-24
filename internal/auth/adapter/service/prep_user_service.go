@@ -48,30 +48,32 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 	result, err := service.breaker.Execute(func() (any, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, service.baseURL+service.meEndpoint, nil)
 		if err != nil {
-			return nil, apperr.InternalServerError("common.internal_server_error", err)
+			return nil, err
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 
+		endpoint := service.baseURL + service.meEndpoint
+
 		resp, err := service.client.Do(req)
 		if err != nil {
-			logger.WithContext(ctx).Error("[AUTH] Prep service connection failed", zap.Error(err))
-			return nil, apperr.ServiceUnavailable("auth.sso_connection_failed", err)
+			logger.Error(ctx, "[AUTH] Prep connection failed", zap.String("endpoint", endpoint), zap.Error(err))
+			return nil, apperr.ServiceUnavailable("auth.sso_service_error", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusUnauthorized {
 			return nil, apperr.Unauthorized("auth.sso_token_invalid")
 		}
+
 		if resp.StatusCode != http.StatusOK {
-			statusErr := fmt.Errorf("status: %s", resp.Status)
-			logger.WithContext(ctx).Error("[AUTH] Prep service returned error", zap.Int("status", resp.StatusCode))
-			return nil, apperr.ServiceUnavailable("auth.sso_service_error", statusErr)
+			logger.Error(ctx, "[AUTH] Prep unexpected status", zap.String("endpoint", endpoint), zap.Int("status", resp.StatusCode))
+			return nil, apperr.ServiceUnavailable("auth.sso_service_error", fmt.Errorf("unexpected status: %s", resp.Status))
 		}
 
 		var body prepMeResponse
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-			logger.WithContext(ctx).Error("[AUTH] failed to decode Prep response", zap.Error(err))
-			return nil, apperr.ServiceUnavailable("auth.sso_invalid_response", err)
+			logger.Error(ctx, "[AUTH] Prep decode failed", zap.String("endpoint", endpoint), zap.Error(err))
+			return nil, apperr.ServiceUnavailable("auth.sso_service_error", err)
 		}
 
 		return domain.NewPrepUser(body.Data.ID, body.Data.Email, body.Data.Name, body.Data.IsFirstLogin), nil
