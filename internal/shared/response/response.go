@@ -180,32 +180,30 @@ func InternalServerError(c *gin.Context, message string, err ...interface{}) {
 	Error(c, http.StatusInternalServerError, msg, err...)
 }
 
+var codeToStatus = map[apperr.Code]int{
+	apperr.CodeBadRequest:          http.StatusBadRequest,
+	apperr.CodeUnauthorized:        http.StatusUnauthorized,
+	apperr.CodeForbidden:           http.StatusForbidden,
+	apperr.CodeNotFound:            http.StatusNotFound,
+	apperr.CodeConflict:            http.StatusConflict,
+	apperr.CodeUnprocessableEntity: http.StatusUnprocessableEntity,
+	apperr.CodeInternalServerError: http.StatusInternalServerError,
+	apperr.CodeServiceUnavailable:  http.StatusServiceUnavailable,
+}
+
 // HandleError maps AppError to HTTP response.
 func HandleError(c *gin.Context, err error) {
 	var domErr *apperr.AppError
-	if errors.As(err, &domErr) {
-		msg := domErr.Message()
-		switch domErr.Code() {
-		case apperr.CodeBadRequest:
-			BadRequest(c, msg)
-		case apperr.CodeUnauthorized:
-			Unauthorized(c, msg)
-		case apperr.CodeForbidden:
-			Forbidden(c, msg)
-		case apperr.CodeNotFound:
-			NotFound(c, msg)
-		case apperr.CodeConflict:
-			Conflict(c, msg)
-		case apperr.CodeUnprocessableEntity:
-			UnprocessableEntity(c, msg)
-		case apperr.CodeServiceUnavailable:
-			ServiceUnavailable(c, msg)
-		default:
-			InternalServerError(c, msg)
-		}
+	if !errors.As(err, &domErr) {
+		InternalServerError(c, "")
 		return
 	}
-	InternalServerError(c, "")
+
+	status, ok := codeToStatus[domErr.Code()]
+	if !ok {
+		status = http.StatusInternalServerError
+	}
+	Error(c, status, domErr.Message())
 }
 
 func getLang(c *gin.Context) string {

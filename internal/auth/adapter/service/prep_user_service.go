@@ -8,8 +8,11 @@ import (
 	"learning-go/internal/auth/domain"
 	"learning-go/internal/infrastructure/circuitbreaker"
 	apperr "learning-go/internal/shared/error"
+	"learning-go/internal/shared/logger"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type PrepUserService struct {
@@ -49,8 +52,11 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 
+		endpoint := service.baseURL + service.meEndpoint
+
 		resp, err := service.client.Do(req)
 		if err != nil {
+			logger.Error(ctx, "[AUTH] Prep connection failed", zap.String("endpoint", endpoint), zap.Error(err))
 			return nil, apperr.ServiceUnavailable("auth.sso_service_error", err)
 		}
 		defer resp.Body.Close()
@@ -58,13 +64,15 @@ func (service *PrepUserService) ValidateToken(ctx context.Context, token string)
 		if resp.StatusCode == http.StatusUnauthorized {
 			return nil, apperr.Unauthorized("auth.sso_token_invalid")
 		}
+
 		if resp.StatusCode != http.StatusOK {
-			statusErr := fmt.Errorf("unexpected status: %s", resp.Status)
-			return nil, apperr.ServiceUnavailable("auth.sso_service_error", statusErr)
+			logger.Error(ctx, "[AUTH] Prep unexpected status", zap.String("endpoint", endpoint), zap.Int("status", resp.StatusCode))
+			return nil, apperr.ServiceUnavailable("auth.sso_service_error", fmt.Errorf("unexpected status: %s", resp.Status))
 		}
 
 		var body prepMeResponse
 		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			logger.Error(ctx, "[AUTH] Prep decode failed", zap.String("endpoint", endpoint), zap.Error(err))
 			return nil, apperr.ServiceUnavailable("auth.sso_service_error", err)
 		}
 
