@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	baiduTokenURL      = "https://aip.baidubce.com/oauth/2.0/token"
+	baiduTokenURL       = "https://aip.baidubce.com/oauth/2.0/token"
 	baiduHandwritingURL = "https://aip.baidubce.com/rest/2.0/ocr/v1/handwriting"
 	baiduGeneralURL     = "https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic"
 
@@ -100,14 +100,14 @@ func (svc *BaiduOCRService) Recognize(ctx context.Context, req port.OCRRequest) 
 
 		resp, err := svc.client.Do(httpReq)
 		if err != nil {
-			logger.WithContext(ctx).Error("[OCR] Baidu OCR connection failed", zap.Error(err))
+			logger.Error(ctx, "[OCR] Baidu connection failed", zap.Error(err))
 			return nil, apperr.ServiceUnavailable("ocr.service_connection_failed", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			respBody, _ := io.ReadAll(resp.Body)
-			logger.WithContext(ctx).Error("[OCR] Baidu OCR returned error",
+			logger.Error(ctx, "[OCR] Baidu returned error",
 				zap.Int("status", resp.StatusCode),
 				zap.String("response", string(respBody)),
 			)
@@ -116,13 +116,12 @@ func (svc *BaiduOCRService) Recognize(ctx context.Context, req port.OCRRequest) 
 
 		var ocrResp baiduOCRResponse
 		if err := json.NewDecoder(resp.Body).Decode(&ocrResp); err != nil {
-			logger.WithContext(ctx).Error("[OCR] Baidu OCR invalid response", zap.Error(err))
+			logger.Error(ctx, "[OCR] Baidu invalid response", zap.Error(err))
 			return nil, apperr.ServiceUnavailable("ocr.service_invalid_response", err)
 		}
 
-		// Baidu returns error_code in body (not HTTP status) for some errors
 		if ocrResp.ErrorCode != 0 {
-			logger.WithContext(ctx).Error("[OCR] Baidu OCR API error",
+			logger.Error(ctx, "[OCR] Baidu API error",
 				zap.Int("error_code", ocrResp.ErrorCode),
 				zap.String("error_msg", ocrResp.ErrorMsg),
 			)
@@ -130,7 +129,6 @@ func (svc *BaiduOCRService) Recognize(ctx context.Context, req port.OCRRequest) 
 		}
 
 		characters := svc.parseResponse(ocrResp, req.Language)
-
 		return &port.OCRResult{Characters: characters, Engine: "baidu_ocr"}, nil
 	})
 	if err != nil {

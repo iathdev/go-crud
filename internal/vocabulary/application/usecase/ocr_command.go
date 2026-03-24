@@ -97,10 +97,6 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 
 	// Enrich pinyin for characters that don't have it (e.g., Google Vision)
 	if req.Language == "zh" {
-		logger.WithContext(ctx).Info("[OCR] enriching pinyin",
-			zap.Int("characters_count", len(ocrResult.Characters)),
-			zap.String("engine", ocrResult.Engine),
-		)
 		for i := range ocrResult.Characters {
 			if ocrResult.Characters[i].Pinyin == "" {
 				ocrResult.Characters[i].Pinyin = convertToPinyin(ocrResult.Characters[i].Text)
@@ -178,7 +174,7 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 		lowConfidenceItems = []vdto.OCRScanCharacterItem{}
 	}
 
-	return &vdto.OCRScanResponse{
+	resp := &vdto.OCRScanResponse{
 		NewItems:           newItems,
 		ExistingItems:      existingItems,
 		LowConfidenceItems: lowConfidenceItems,
@@ -187,7 +183,17 @@ func (useCase *OCRCommand) ProcessOCRScan(ctx context.Context, req vdto.OCRScanR
 			TotalDetected:    totalDetected,
 			ProcessingTimeMs: time.Since(start).Milliseconds(),
 		},
-	}, nil
+	}
+
+	logger.Info(ctx, "[OCR] scan completed",
+		zap.Int("new_items", len(newItems)),
+		zap.Int("existing_items", len(existingItems)),
+		zap.Int("low_confidence_items", len(lowConfidenceItems)),
+		zap.String("engine", ocrResult.Engine),
+		zap.Int64("processing_ms", resp.Metadata.ProcessingTimeMs),
+	)
+
+	return resp, nil
 }
 
 func avgConfidence(chars []port.OCRCharacter) float64 {

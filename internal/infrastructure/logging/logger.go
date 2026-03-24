@@ -36,7 +36,7 @@ func NewLogger(cfg *config.Config) (*zap.Logger, error) {
 	}
 
 	combined := zapcore.NewTee(cores...)
-	z := zap.New(combined, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	z := zap.New(combined, zap.AddCaller(), zap.AddStacktrace(zapcore.DPanicLevel))
 	z = z.With(zap.String("service", cfg.GetServiceName()))
 
 	zap.RedirectStdLog(z)

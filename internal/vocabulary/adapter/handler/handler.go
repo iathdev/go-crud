@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"learning-go/internal/shared/dto"
-	"learning-go/internal/shared/logger"
 	"learning-go/internal/shared/response"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type VocabularyHandler struct {
@@ -185,17 +183,12 @@ func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 
 	var httpReq vdto.OCRScanHTTPRequest
 	if err := c.ShouldBindJSON(&httpReq); err != nil {
-		logger.WithContext(c.Request.Context()).Warn("[OCR] invalid request body", zap.Error(err))
 		response.ValidationError(c, err)
 		return
 	}
 
 	imageBytes, err := downloadImage(httpReq.ImageURL, maxImageSize)
 	if err != nil {
-		logger.WithContext(c.Request.Context()).Warn("[OCR] download image failed",
-			zap.String("image_url", httpReq.ImageURL),
-			zap.Error(err),
-		)
 		response.BadRequest(c, "ocr.image_download_failed")
 		return
 	}
@@ -220,13 +213,6 @@ func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 		response.HandleError(c, err)
 		return
 	}
-	logger.WithContext(c.Request.Context()).Info("[OCR] scan completed",
-		zap.Int("new_items", len(res.NewItems)),
-		zap.Int("existing_items", len(res.ExistingItems)),
-		zap.Int("low_confidence_items", len(res.LowConfidenceItems)),
-		zap.String("engine", res.Metadata.EngineUsed),
-		zap.Int64("processing_ms", res.Metadata.ProcessingTimeMs),
-	)
 	response.Success(c, http.StatusOK, res)
 }
 

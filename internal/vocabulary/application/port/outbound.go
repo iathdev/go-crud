@@ -7,8 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Output ports (driven) — implemented by adapters (repositories)
-
 type VocabularyRepositoryPort interface {
 	Save(ctx context.Context, vocab *domain.Vocabulary) error
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.Vocabulary, error)
@@ -53,10 +51,6 @@ type GrammarPointRepositoryPort interface {
 	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*domain.GrammarPoint, error)
 }
 
-// --- OCR Service Port (matches plan_ocr_engine.md section 3.3) ---
-
-// OCRServicePort — mỗi adapter (PaddleOCR, Google Vision, Baidu) implement interface này.
-// Adapter chỉ biết gọi 1 engine của nó, không biết routing logic.
 type OCRServicePort interface {
 	Recognize(ctx context.Context, req OCRRequest) (*OCRResult, error)
 }
@@ -78,7 +72,6 @@ type OCRCharacter struct {
 	Candidates []string
 }
 
-// OCREngineKey xác định engine nào dùng cho combination (type, language).
 type OCREngineKey string
 
 const (
@@ -87,5 +80,4 @@ const (
 	OCREngineBaiduOCR     OCREngineKey = "baidu_ocr"
 )
 
-// OCREngineRegistry — use case dùng registry này để route theo type + language.
 type OCREngineRegistry map[OCREngineKey]OCRServicePort
