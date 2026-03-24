@@ -2,9 +2,11 @@ package middleware
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"learning-go/internal/shared/common"
 	"learning-go/internal/shared/logger"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,11 +19,15 @@ var defaultSkipPaths = map[string]bool{
 	"/health": true,
 }
 
-// Paths whose request body may contain sensitive data (passwords, tokens).
-var sensitiveBodyPaths = map[string]bool{
-	"/login":    true,
-	"/register": true,
-	"/refresh":  true,
+var sensitiveKeys = map[string]bool{
+	"password":      true,
+	"token":         true,
+	"secret":        true,
+	"authorization": true,
+	"cookie":        true,
+	"credit_card":   true,
+	"ssn":           true,
+	"api_key":       true,
 }
 
 func RequestLoggerMiddleware() gin.HandlerFunc {
@@ -33,15 +39,13 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 
 		start := time.Now()
 
-		// Capture request body for debug logging (skip sensitive paths)
+		// Capture request body for debug logging (sensitive fields are masked)
 		var requestBody string
-		if !sensitiveBodyPaths[c.Request.URL.Path] {
-			if c.Request.Body != nil && c.Request.ContentLength > 0 && c.Request.ContentLength <= maxBodyLogSize {
-				bodyBytes, err := io.ReadAll(c.Request.Body)
-				if err == nil {
-					requestBody = string(bodyBytes)
-					c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-				}
+		if c.Request.Body != nil && c.Request.ContentLength > 0 && c.Request.ContentLength <= maxBodyLogSize {
+			bodyBytes, err := io.ReadAll(c.Request.Body)
+			if err == nil {
+				requestBody = sanitizeBody(bodyBytes)
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
 		}
 
@@ -66,4 +70,23 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 
 		logger.WithContext(ctx).Info("[SERVER] http_request", fields...)
 	}
+}
+
+func sanitizeBody(body []byte) string {
+	var data map[string]any
+	if err := json.Unmarshal(body, &data); err != nil {
+		return string(body)
+	}
+
+	for key := range data {
+		if sensitiveKeys[strings.ToLower(key)] {
+			data[key] = "***"
+		}
+	}
+
+	sanitized, err := json.Marshal(data)
+	if err != nil {
+		return string(body)
+	}
+	return string(sanitized)
 }

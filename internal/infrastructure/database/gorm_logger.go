@@ -51,10 +51,10 @@ func (gormLogger *GormLogger) Trace(ctx context.Context, begin time.Time, fc fun
 
 	switch {
 	case err != nil && !errors.Is(err, gorm.ErrRecordNotFound):
-		logger.WithContext(ctx).Error("[SERVER] gorm_query", append(fields, zap.Error(err))...)
+		logger.WithContext(ctx).Error("[GORM] gorm_query", append(fields, zap.Error(err))...)
 	case elapsed > gormLogger.SlowThreshold:
-		logger.WithContext(ctx).Warn("[SERVER] gorm_slow_query", fields...)
+		logger.WithContext(ctx).Warn("[GORM] gorm_slow_query", fields...)
 	default:
-		logger.WithContext(ctx).Debug("[SERVER] gorm_query", fields...)
+		logger.WithContext(ctx).Debug("[GORM] gorm_query", fields...)
 	}
 }
