@@ -12,7 +12,7 @@ type ObservabilityConfig struct {
 
 func (config *Config) GetServiceName() string {
 	if config.ServiceName == "" {
-		return "go-crud"
+		return "learning-ultility"
 	}
 	return config.ServiceName
 }

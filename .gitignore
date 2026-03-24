@@ -9,4 +9,6 @@ skills-lock.json
 .agent/
 .agents/
 .trae/
-scripts/ocr-service/,venv
+scripts/ocr-service/.venv
+.gcp/
+.venv/

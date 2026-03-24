@@ -41,11 +41,7 @@ func NewRouter(
 
 	// Public routes with rate limiting
 	public := r.Group("/")
-	const (
-		publicRateLimitRPS   = 5
-		publicRateLimitBurst = 10
-	)
-	public.Use(middleware.RateLimitMiddleware(publicRateLimitRPS, publicRateLimitBurst))
+	public.Use(middleware.RateLimitMiddleware(cfg.GetRateLimitRPS(), cfg.GetRateLimitBurst()))
 
 	// Protected routes
 	api := r.Group("/api")

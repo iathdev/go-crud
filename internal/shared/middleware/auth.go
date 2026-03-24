@@ -17,7 +17,7 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			logger.WithContext(c.Request.Context()).Debug("[AUTH] auth rejected",
+			logger.Debug(c.Request.Context(), "[AUTH] auth rejected",
 				zap.String("reason", "missing or invalid authorization header"),
 				zap.String("client_ip", common.ResolveClientIP(c.Request)),
 			)
@@ -35,18 +35,16 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 			return
 		}
 
-		user, isFirstLogin, err := upsertUser(c, userRepo, prepUser)
+		user, err := upsertUser(c, userRepo, prepUser)
 		if err != nil {
-			logger.WithContext(c.Request.Context()).Error("[AUTH] upsert failed", zap.Error(err))
+			logger.Error(c.Request.Context(), "[AUTH] upsert failed", zap.Error(err))
 			response.InternalServerError(c, "")
 			c.Abort()
 			return
 		}
 
 		c.Set("user_id", user.ID.String())
-		c.Set("email", user.Email)
-		c.Set("prep_user_id", user.PrepUserID)
-		c.Set("is_first_login", isFirstLogin)
+		c.Set("prep_user", prepUser)
 
 		ctx := ctxlog.WithFields(c.Request.Context(), zap.String("user_id", user.ID.String()))
 		c.Request = c.Request.WithContext(ctx)
@@ -55,29 +53,29 @@ func AuthMiddleware(prepService port.PrepUserServicePort, userRepo port.UserRepo
 	}
 }
 
-func upsertUser(c *gin.Context, userRepo port.UserRepositoryPort, prepUser *domain.PrepUser) (*domain.User, bool, error) {
+func upsertUser(c *gin.Context, userRepo port.UserRepositoryPort, prepUser *domain.PrepUser) (*domain.User, error) {
 	ctx := c.Request.Context()
 
 	existing, err := userRepo.FindByPrepUserID(ctx, prepUser.PrepUserID)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	if existing == nil {
 		user := domain.NewUser(prepUser.PrepUserID, prepUser.Email, prepUser.Name)
 		if err := userRepo.Upsert(ctx, user); err != nil {
-			return nil, false, err
+			return nil, err
 		}
-		return user, true, nil
+		return user, nil
 	}
 
 	if existing.Email != prepUser.Email || existing.Name != prepUser.Name {
 		existing.Email = prepUser.Email
 		existing.Name = prepUser.Name
 		if err := userRepo.Update(ctx, existing); err != nil {
-			return nil, false, err
+			return nil, err
 		}
 	}
 
-	return existing, false, nil
+	return existing, nil
 }

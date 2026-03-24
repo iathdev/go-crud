@@ -10,7 +10,7 @@
 All log messages MUST include module prefix: `[AUTH]`, `[VOCABULARY]`, `[SERVER]`.
 
 ```go
-logger.WithContext(ctx).Warn("[VOCABULARY] error fetching topics", zap.Error(err))
+logger.Warn(ctx, "[VOCABULARY] error fetching topics", zap.Error(err))
 ```
 
 - **Use cases**: `Warn`/`Info`/`Debug` only for non-error situations. Never `Error` — just create and return errors.

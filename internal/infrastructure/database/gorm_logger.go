@@ -17,9 +17,9 @@ type GormLogger struct {
 	SlowThreshold time.Duration
 }
 
-func NewGormLogger() *GormLogger {
+func NewGormLogger(slowThreshold time.Duration) *GormLogger {
 	return &GormLogger{
-		SlowThreshold: 200 * time.Millisecond,
+		SlowThreshold: slowThreshold,
 	}
 }
 
@@ -28,15 +28,15 @@ func (gormLogger *GormLogger) LogMode(gormlogger.LogLevel) gormlogger.Interface 
 }
 
 func (gormLogger *GormLogger) Info(ctx context.Context, msg string, data ...interface{}) {
-	logger.WithContext(ctx).Info("[SERVER] " + fmt.Sprintf(msg, data...))
+	logger.Info(ctx, "[SERVER] "+fmt.Sprintf(msg, data...))
 }
 
 func (gormLogger *GormLogger) Warn(ctx context.Context, msg string, data ...interface{}) {
-	logger.WithContext(ctx).Warn("[SERVER] " + fmt.Sprintf(msg, data...))
+	logger.Warn(ctx, "[SERVER] "+fmt.Sprintf(msg, data...))
 }
 
 func (gormLogger *GormLogger) Error(ctx context.Context, msg string, data ...interface{}) {
-	logger.WithContext(ctx).Error("[SERVER] " + fmt.Sprintf(msg, data...))
+	logger.Error(ctx, "[SERVER] "+fmt.Sprintf(msg, data...))
 }
 
 func (gormLogger *GormLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {

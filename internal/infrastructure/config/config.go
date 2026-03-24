@@ -6,11 +6,13 @@ type Config struct {
 	AppPort string `mapstructure:"APP_PORT"`
 	GinMode string `mapstructure:"GIN_MODE"`
 
+	ServerConfig         `mapstructure:",squash"`
 	DatabaseConfig       `mapstructure:",squash"`
 	CircuitBreakerConfig `mapstructure:",squash"`
 	LogConfig            `mapstructure:",squash"`
 	ObservabilityConfig  `mapstructure:",squash"`
 	RedisConfig          `mapstructure:",squash"`
+	RateLimitConfig      `mapstructure:",squash"`
 	AuthConfig           `mapstructure:",squash"`
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"learning-go/internal/infrastructure/config"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,8 +17,9 @@ func NewServer(cfg *config.Config, handler *gin.Engine) *Server {
 		httpServer: &http.Server{
 			Addr:           ":" + cfg.AppPort,
 			Handler:        handler,
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
+			ReadTimeout:    cfg.GetServerReadTimeout(),
+			WriteTimeout:   cfg.GetServerWriteTimeout(),
+			IdleTimeout:    cfg.GetServerIdleTimeout(),
 			MaxHeaderBytes: 1 << 20,
 		},
 	}

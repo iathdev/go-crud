@@ -50,7 +50,7 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 		latency := time.Since(start)
 		status := c.Writer.Status()
 
-		log := logger.WithContext(c.Request.Context())
+		ctx := c.Request.Context()
 
 		fields := []zap.Field{
 			zap.String("method", c.Request.Method),
@@ -64,6 +64,6 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 			fields = append(fields, zap.String("body", requestBody))
 		}
 
-		log.Info("[SERVER] http_request", fields...)
+		logger.WithContext(ctx).Info("[SERVER] http_request", fields...)
 	}
 }

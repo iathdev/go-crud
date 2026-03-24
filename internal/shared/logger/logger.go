@@ -44,12 +44,39 @@ func WithContext(ctx context.Context) *zap.Logger {
 	return global.With(fields...)
 }
 
-// Package-level functions delegate to the global logger.
+func Debug(first any, rest ...any)         { dispatch((*zap.Logger).Debug, first, rest...) }
+func Info(first any, rest ...any)          { dispatch((*zap.Logger).Info, first, rest...) }
+func Warn(first any, rest ...any)          { dispatch((*zap.Logger).Warn, first, rest...) }
+func Error(first any, rest ...any)         { dispatch((*zap.Logger).Error, first, rest...) }
+func Fatal(first any, rest ...any)         { dispatch((*zap.Logger).Fatal, first, rest...) }
+func With(fields ...zap.Field) *zap.Logger { return global.With(fields...) }
+func Sync() error                          { return global.Sync() }
 
-func Debug(msg string, fields ...zap.Field) { global.Debug(msg, fields...) }
-func Info(msg string, fields ...zap.Field)  { global.Info(msg, fields...) }
-func Warn(msg string, fields ...zap.Field)  { global.Warn(msg, fields...) }
-func Error(msg string, fields ...zap.Field) { global.Error(msg, fields...) }
-func Fatal(msg string, fields ...zap.Field) { global.Fatal(msg, fields...) }
-func With(fields ...zap.Field) *zap.Logger  { return global.With(fields...) }
-func Sync() error                           { return global.Sync() }
+func dispatch(fn func(*zap.Logger, string, ...zap.Field), first any, rest ...any) {
+	var log *zap.Logger
+	var msg string
+	var fieldArgs []any
+
+	switch v := first.(type) {
+	case context.Context:
+		log = WithContext(v)
+		if len(rest) > 0 {
+			msg, _ = rest[0].(string)
+			fieldArgs = rest[1:]
+		}
+	case string:
+		log = global
+		msg = v
+		fieldArgs = rest
+	default:
+		return
+	}
+
+	fields := make([]zap.Field, 0, len(fieldArgs))
+	for _, a := range fieldArgs {
+		if f, ok := a.(zap.Field); ok {
+			fields = append(fields, f)
+		}
+	}
+	fn(log, msg, fields...)
+}

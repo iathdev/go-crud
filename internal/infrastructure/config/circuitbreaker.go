@@ -1,11 +1,13 @@
 package config
 
+import "time"
+
 type CircuitBreakerConfig struct {
-	CBMaxRequests  uint32  `mapstructure:"CB_MAX_REQUESTS"`
-	CBInterval     int     `mapstructure:"CB_INTERVAL"`
-	CBTimeout      int     `mapstructure:"CB_TIMEOUT"`
-	CBFailureRatio float64 `mapstructure:"CB_FAILURE_RATIO"`
-	CBMinRequests  uint32  `mapstructure:"CB_MIN_REQUESTS"`
+	CBMaxRequests  uint32        `mapstructure:"CB_MAX_REQUESTS"`
+	CBInterval     time.Duration `mapstructure:"CB_INTERVAL"`
+	CBTimeout      time.Duration `mapstructure:"CB_TIMEOUT"`
+	CBFailureRatio float64       `mapstructure:"CB_FAILURE_RATIO"`
+	CBMinRequests  uint32        `mapstructure:"CB_MIN_REQUESTS"`
 }
 
 func (config *Config) GetCBMaxRequests() uint32 {
@@ -15,16 +17,16 @@ func (config *Config) GetCBMaxRequests() uint32 {
 	return config.CBMaxRequests
 }
 
-func (config *Config) GetCBInterval() int {
+func (config *Config) GetCBInterval() time.Duration {
 	if config.CBInterval == 0 {
-		return 60
+		return 60 * time.Second
 	}
 	return config.CBInterval
 }
 
-func (config *Config) GetCBTimeout() int {
+func (config *Config) GetCBTimeout() time.Duration {
 	if config.CBTimeout == 0 {
-		return 30
+		return 30 * time.Second
 	}
 	return config.CBTimeout
 }
