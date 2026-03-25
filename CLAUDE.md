@@ -122,5 +122,5 @@ Additional design docs in `docs/`: `architecture.md`, `tech_stack.md`, `requirem
 
 ## Rules
 
-- **Coding Style**: See [`docs/coding_style.md`](docs/coding_style.md)
-- **Planning Rules**: See [`docs/planning_rules.md`](docs/planning_rules.md)
+- **Coding Style**: See [`docs/coding_style.md`](.claude/rules/coding_style.md)
+- **Planning Rules**: See [`docs/planning_rules.md`](.claude/rules/planning_rules.md)
