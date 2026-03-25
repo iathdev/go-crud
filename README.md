@@ -6,8 +6,8 @@ Dự án **REST API** với **Go (Golang)** theo kiến trúc **Modular Monolith
 
 Vui lòng xem chi tiết tại thư mục `docs/`:
 
-- [Kiến trúc Dự án và Vòng đời Request](docs/architecture.md)
-- [Danh sách Công nghệ và Thư viện](docs/tech_stack.md)
+- [Kiến trúc Dự án và Vòng đời Request](.claude/docs/architecture.md)
+- [Danh sách Công nghệ và Thư viện](.claude/docs/tech_stack.md)
 
 ## Cài đặt và Chạy
 

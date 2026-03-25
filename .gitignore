@@ -4,7 +4,7 @@ logs/*
 .vscode
 config.yml
 .DS_Store
-.claude
+.claude/skills
 skills-lock.json
 .agent/
 .agents/
