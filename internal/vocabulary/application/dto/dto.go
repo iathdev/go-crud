@@ -97,31 +97,25 @@ type GrammarPointResponse struct {
 	HSKLevel      int    `json:"hsk_level"`
 }
 
-// --- OCR DTOs (matches plan_ocr_engine.md response format) ---
+// --- OCR DTOs ---
 
 type OCRScanHTTPRequest struct {
 	ImageURL string `json:"image_url" binding:"required,url"`
 	Type     string `json:"type" binding:"omitempty,oneof=printed handwritten auto"`
 	Language string `json:"language" binding:"omitempty,oneof=zh vi en"`
-}
-
-type OCRScanRequest struct {
-	Image    []byte
-	Type     string // "printed" | "handwritten" | "auto"
-	Language string // "zh" | "vi" | "en"
+	Engine   string `json:"engine" binding:"omitempty,oneof=paddleocr tesseract google_vision baidu_ocr"`
 }
 
 type OCRScanCharacterItem struct {
-	Hanzi      string   `json:"hanzi"`
-	Pinyin     string   `json:"pinyin"`
-	Confidence float64  `json:"confidence"`
-	Candidates []string `json:"candidates,omitempty"`
+	Text          string   `json:"text"`
+	Pronunciation string   `json:"pronunciation,omitempty"`
+	Confidence    float64  `json:"confidence"`
+	Candidates    []string `json:"candidates,omitempty"`
 }
 
 type OCRScanExistingItem struct {
 	VocabularyListResponse
 	Confidence float64  `json:"confidence"`
-	Candidates []string `json:"candidates,omitempty"`
 }
 
 type OCRScanMetadata struct {
@@ -131,10 +125,10 @@ type OCRScanMetadata struct {
 }
 
 type OCRScanResponse struct {
-	NewItems           []OCRScanCharacterItem `json:"new_items"`
-	ExistingItems      []OCRScanExistingItem  `json:"existing_items"`
-	LowConfidenceItems []OCRScanCharacterItem `json:"low_confidence_items"`
-	Metadata           OCRScanMetadata        `json:"metadata"`
+	NewItems      []OCRScanCharacterItem `json:"new_items"`
+	ExistingItems []OCRScanExistingItem  `json:"existing_items"`
+	LowConfidence []OCRScanCharacterItem `json:"low_confidence"`
+	Metadata      OCRScanMetadata        `json:"metadata"`
 }
 
 // --- Bulk Import DTOs ---

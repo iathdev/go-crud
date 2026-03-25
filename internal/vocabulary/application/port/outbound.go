@@ -51,33 +51,28 @@ type GrammarPointRepositoryPort interface {
 	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*domain.GrammarPoint, error)
 }
 
-type OCRServicePort interface {
-	Recognize(ctx context.Context, req OCRRequest) (*OCRResult, error)
+type OCRScannerPort interface {
+	ProcessScan(ctx context.Context, req OCRScanInput) (*OCRScanOutput, error)
 }
 
-type OCRRequest struct {
+type OCRScanInput struct {
 	Image    []byte
+	Type     string // "printed" | "handwritten" | "auto"
 	Language string // "zh" | "vi" | "en"
+	Engine   string // optional: force specific engine
 }
 
-type OCRResult struct {
-	Characters []OCRCharacter
-	Engine     string // "paddleocr" | "tesseract" | "google_vision" | "baidu_ocr"
+type OCRScanOutput struct {
+	Items         []OCRCharacterOutput
+	LowConfidence []OCRCharacterOutput
+	EngineUsed    string
+	TotalDetected int
+	ProcessingMs  int64
 }
 
-type OCRCharacter struct {
-	Text       string
-	Pinyin     string
-	Confidence float64
-	Candidates []string
+type OCRCharacterOutput struct {
+	Text          string
+	Pronunciation string
+	Confidence    float64
+	Candidates    []string
 }
-
-type OCREngineKey string
-
-const (
-	OCREnginePaddleOCR    OCREngineKey = "paddleocr"
-	OCREngineGoogleVision OCREngineKey = "google_vision"
-	OCREngineBaiduOCR     OCREngineKey = "baidu_ocr"
-)
-
-type OCREngineRegistry map[OCREngineKey]OCRServicePort

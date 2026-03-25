@@ -6,3 +6,5 @@ pydantic
 jieba
 pypinyin
 urllib3<2
+pytesseract
+Pillow

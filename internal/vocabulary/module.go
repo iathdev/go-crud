@@ -1,22 +1,23 @@
 package vocabulary
 
 import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"learning-go/internal/shared/middleware"
 	"learning-go/internal/vocabulary/adapter/handler"
 	"learning-go/internal/vocabulary/adapter/repository"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/application/usecase"
-	"time"
-
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type Module struct {
 	handler *handler.VocabularyHandler
 }
 
-func NewModule(db *gorm.DB, ocrEngines port.OCREngineRegistry) *Module {
+func NewModule(db *gorm.DB, ocrScanner port.OCRScannerPort) *Module {
 	vocabRepo := repository.NewVocabularyRepository(db)
 	folderRepo := repository.NewFolderRepository(db)
 	topicRepo := repository.NewTopicRepository(db)
@@ -27,10 +28,9 @@ func NewModule(db *gorm.DB, ocrEngines port.OCREngineRegistry) *Module {
 	folderCmd := usecase.NewFolderCommand(folderRepo, vocabRepo)
 	folderQry := usecase.NewFolderQuery(folderRepo)
 	topicQry := usecase.NewTopicQuery(topicRepo)
-	ocrCmd := usecase.NewOCRCommand(vocabRepo, ocrEngines)
 	importCmd := usecase.NewImportCommand(vocabRepo)
 
-	vocabHandler := handler.NewVocabularyHandler(vocabCmd, vocabQry, folderCmd, folderQry, topicQry, ocrCmd, importCmd)
+	vocabHandler := handler.NewVocabularyHandler(vocabCmd, vocabQry, folderCmd, folderQry, topicQry, importCmd, ocrScanner)
 
 	return &Module{handler: vocabHandler}
 }
@@ -51,8 +51,8 @@ func (module *Module) RegisterRoutes(public, protected *gin.RouterGroup) {
 	v1.PUT("/vocabularies/:id", module.handler.UpdateVocabulary)
 	v1.DELETE("/vocabularies/:id", module.handler.DeleteVocabulary)
 
-	// OCR
-	v1.POST("/vocabularies/ocr-scan", middleware.TimeoutMiddleware(60*time.Second), module.handler.ProcessOCRScan)
+	// OCR scan
+	public.POST("/vocabularies/ocr-scan", middleware.TimeoutMiddleware(60*time.Second), module.handler.ProcessOCRScan)
 
 	// Admin import
 	v1.POST("/admin/vocabularies/import", module.handler.ImportVocabularies)

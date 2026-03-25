@@ -5,6 +5,7 @@ import (
 	"errors"
 	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
+	"learning-go/internal/vocabulary/application/mapper"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 
@@ -33,7 +34,7 @@ func (useCase *VocabularyCommand) CreateVocabulary(ctx context.Context, req vdto
 		MeaningEN:       req.MeaningEN,
 		HSKLevel:        req.HSKLevel,
 		AudioURL:        req.AudioURL,
-		Examples:        toExampleEntities(req.Examples),
+		Examples:        mapper.ToExampleEntities(req.Examples),
 		Radicals:        req.Radicals,
 		StrokeCount:     req.StrokeCount,
 		StrokeDataURL:   req.StrokeDataURL,
@@ -50,7 +51,7 @@ func (useCase *VocabularyCommand) CreateVocabulary(ctx context.Context, req vdto
 		return nil, apperr.InternalServerError("vocabulary.save_failed", err)
 	}
 
-	return toVocabularyResponse(vocab), nil
+	return mapper.ToVocabularyResponse(vocab), nil
 }
 
 func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id string, req vdto.UpdateVocabularyRequest) (*vdto.VocabularyResponse, error) {
@@ -74,7 +75,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 		MeaningEN:       req.MeaningEN,
 		HSKLevel:        req.HSKLevel,
 		AudioURL:        req.AudioURL,
-		Examples:        toExampleEntities(req.Examples),
+		Examples:        mapper.ToExampleEntities(req.Examples),
 		Radicals:        req.Radicals,
 		StrokeCount:     req.StrokeCount,
 		StrokeDataURL:   req.StrokeDataURL,
@@ -126,7 +127,7 @@ func (useCase *VocabularyCommand) UpdateVocabulary(ctx context.Context, id strin
 		}
 	}
 
-	return toVocabularyResponse(vocab), nil
+	return mapper.ToVocabularyResponse(vocab), nil
 }
 
 func (useCase *VocabularyCommand) DeleteVocabulary(ctx context.Context, id string) error {
@@ -148,21 +149,6 @@ func (useCase *VocabularyCommand) DeleteVocabulary(ctx context.Context, id strin
 	}
 
 	return nil
-}
-
-func toExampleEntities(dtos []vdto.ExampleDTO) []domain.Example {
-	if dtos == nil {
-		return nil
-	}
-	examples := make([]domain.Example, 0, len(dtos))
-	for _, d := range dtos {
-		examples = append(examples, domain.Example{
-			SentenceCN: d.SentenceCN,
-			SentenceVI: d.SentenceVI,
-			AudioURL:   d.AudioURL,
-		})
-	}
-	return examples
 }
 
 func parseUUIDs(ids []string) ([]uuid.UUID, error) {

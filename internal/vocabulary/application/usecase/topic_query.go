@@ -4,6 +4,7 @@ import (
 	"context"
 	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
+	"learning-go/internal/vocabulary/application/mapper"
 	"learning-go/internal/vocabulary/application/port"
 )
 
@@ -23,7 +24,7 @@ func (useCase *TopicQuery) ListTopics(ctx context.Context) ([]*vdto.TopicRespons
 
 	result := make([]*vdto.TopicResponse, 0, len(topics))
 	for _, t := range topics {
-		resp := toTopicResponse(t)
+		resp := mapper.ToTopicResponse(t)
 		result = append(result, &resp)
 	}
 	return result, nil

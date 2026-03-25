@@ -11,7 +11,7 @@ import (
 	"learning-go/internal/infrastructure/circuitbreaker"
 	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
-	"learning-go/internal/vocabulary/application/port"
+	"learning-go/internal/ocr/application/port"
 
 	"go.uber.org/zap"
 )
@@ -50,27 +50,13 @@ func (svc *GoogleVisionService) Recognize(ctx context.Context, req port.OCRReque
 
 		responses := resp.GetResponses()
 		if len(responses) == 0 || responses[0].GetFullTextAnnotation() == nil {
-			return &port.OCRResult{Characters: []port.OCRCharacter{}, Engine: "google_vision"}, nil
+			return &port.OCRResult{Characters: []port.OCRCharacter{}, Engine: string(port.OCREngineGoogleVision)}, nil
 		}
 
 		annotation := responses[0].GetFullTextAnnotation()
+		characters := extractCharacters(annotation, req.Language)
 
-		seen := make(map[string]struct{})
-		var characters []port.OCRCharacter
-
-		for _, page := range annotation.GetPages() {
-			for _, block := range page.GetBlocks() {
-				for _, paragraph := range block.GetParagraphs() {
-					if req.Language == "zh" {
-						characters = extractChinese(paragraph, seen, characters)
-					} else {
-						characters = extractWords(paragraph, seen, characters)
-					}
-				}
-			}
-		}
-
-		return &port.OCRResult{Characters: characters, Engine: "google_vision"}, nil
+		return &port.OCRResult{Characters: characters, Engine: string(port.OCREngineGoogleVision)}, nil
 	})
 	if err != nil {
 		return nil, err
@@ -78,30 +64,56 @@ func (svc *GoogleVisionService) Recognize(ctx context.Context, req port.OCRReque
 	return result.(*port.OCRResult), nil
 }
 
-// extractChinese extracts at symbol level — each symbol is 1 CJK character.
+func extractCharacters(annotation *visionpb.TextAnnotation, language string) []port.OCRCharacter {
+	seen := make(map[string]struct{})
+	var characters []port.OCRCharacter
+
+	for _, page := range annotation.GetPages() {
+		for _, block := range page.GetBlocks() {
+			for _, paragraph := range block.GetParagraphs() {
+				if isCJKLanguage(language) {
+					characters = extractChinese(paragraph, seen, characters)
+				} else {
+					characters = extractWordsWithLang(paragraph, language, seen, characters)
+				}
+			}
+		}
+	}
+
+	return characters
+}
+
 func extractChinese(paragraph *visionpb.Paragraph, seen map[string]struct{}, characters []port.OCRCharacter) []port.OCRCharacter {
 	for _, word := range paragraph.GetWords() {
+		var wordText string
 		for _, symbol := range word.GetSymbols() {
 			text := symbol.GetText()
-			if !isCJK(text) {
-				continue
+			if isCJK(text) {
+				wordText += text
 			}
-			if _, exists := seen[text]; exists {
-				continue
-			}
-			seen[text] = struct{}{}
-			characters = append(characters, port.OCRCharacter{
-				Text:       text,
-				Confidence: float64(symbol.GetConfidence()),
-			})
 		}
+		if wordText == "" {
+			continue
+		}
+		if _, exists := seen[wordText]; exists {
+			continue
+		}
+		seen[wordText] = struct{}{}
+		characters = append(characters, port.OCRCharacter{
+			Text:       wordText,
+			Confidence: float64(word.GetConfidence()),
+		})
 	}
 	return characters
 }
 
-// extractWords extracts at word level for non-Chinese languages.
-func extractWords(paragraph *visionpb.Paragraph, seen map[string]struct{}, characters []port.OCRCharacter) []port.OCRCharacter {
+func extractWordsWithLang(paragraph *visionpb.Paragraph, requestedLang string, seen map[string]struct{}, characters []port.OCRCharacter) []port.OCRCharacter {
 	for _, word := range paragraph.GetWords() {
+		detectedLang := detectWordLanguage(word)
+		if detectedLang != "" && detectedLang != requestedLang {
+			continue
+		}
+
 		var wordText string
 		for _, symbol := range word.GetSymbols() {
 			wordText += symbol.GetText()
@@ -121,10 +133,40 @@ func extractWords(paragraph *visionpb.Paragraph, seen map[string]struct{}, chara
 	return characters
 }
 
-// isCJK checks if the string contains a CJK Unified Ideograph.
-func isCJK(s string) bool {
-	for _, r := range s {
-		if unicode.Is(unicode.Han, r) {
+func detectWordLanguage(word *visionpb.Word) string {
+	if prop := word.GetProperty(); prop != nil {
+		for _, detectedLang := range prop.GetDetectedLanguages() {
+			return mapBCP47ToLang(detectedLang.GetLanguageCode())
+		}
+	}
+	return ""
+}
+
+func mapBCP47ToLang(code string) string {
+	switch {
+	case code == "zh" || code == "zh-Hans" || code == "zh-Hant" || code == "zh-CN" || code == "zh-TW":
+		return "zh"
+	case code == "vi":
+		return "vi"
+	case code == "en":
+		return "en"
+	default:
+		return code
+	}
+}
+
+func isCJKLanguage(language string) bool {
+	switch language {
+	case "zh", "ja", "ko":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCJK(text string) bool {
+	for _, char := range text {
+		if unicode.Is(unicode.Han, char) {
 			return true
 		}
 	}

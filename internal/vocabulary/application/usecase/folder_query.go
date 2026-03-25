@@ -5,6 +5,7 @@ import (
 	"learning-go/internal/shared/dto"
 	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
+	"learning-go/internal/vocabulary/application/mapper"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 	"math"
@@ -33,7 +34,7 @@ func (useCase *FolderQuery) ListFolders(ctx context.Context, userID string) ([]*
 
 	result := make([]*vdto.FolderResponse, 0, len(folders))
 	for _, f := range folders {
-		result = append(result, toFolderResponse(f))
+		result = append(result, mapper.ToFolderResponse(f))
 	}
 	return result, nil
 }
@@ -60,7 +61,7 @@ func (useCase *FolderQuery) ListVocabularies(ctx context.Context, folderID strin
 	totalPages := int(math.Ceil(float64(total) / float64(pagination.PageSize)))
 	items := make([]*vdto.VocabularyResponse, 0, len(vocabs))
 	for _, v := range vocabs {
-		items = append(items, toVocabularyResponse(v))
+		items = append(items, mapper.ToVocabularyResponse(v))
 	}
 
 	return &dto.PaginatedResponse{
@@ -102,11 +103,3 @@ func getOwnedFolder(ctx context.Context, folderRepo port.FolderRepositoryPort, i
 	return folder, nil
 }
 
-func toFolderResponse(f *domain.Folder) *vdto.FolderResponse {
-	return &vdto.FolderResponse{
-		ID:          f.ID.String(),
-		Name:        f.Name,
-		Description: f.Description,
-		CreatedAt:   f.CreatedAt,
-	}
-}

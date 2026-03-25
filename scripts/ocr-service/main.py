@@ -84,10 +84,11 @@ def _extract_paddleocr(image_path: str, language: str) -> list[dict]:
                         seen.add(word)
                         characters.append({"text": word, "pinyin": _to_pinyin(word), "confidence": round(confidence, 4), "candidates": []})
             else:
-                text = text.strip()
-                if text and text not in seen:
-                    seen.add(text)
-                    characters.append({"text": text, "pinyin": "", "confidence": round(confidence, 4), "candidates": []})
+                words = text.strip().split()
+                for word in words:
+                    if word and word not in seen:
+                        seen.add(word)
+                        characters.append({"text": word, "pinyin": "", "confidence": round(confidence, 4), "candidates": []})
 
     return characters
 
@@ -113,12 +114,17 @@ def _extract_tesseract(image_path: str, language: str) -> list[dict]:
     seen = set()
 
     for i, text in enumerate(data["text"]):
+        # Only process word-level rows (level 5). Other levels (page, block,
+        # paragraph, line) are metadata rows with conf = -1.
+        if data["level"][i] != 5:
+            continue
+
         text = text.strip()
         if not text:
             continue
 
         conf = data["conf"][i]
-        confidence = max(0.0, float(conf) / 100.0) if conf != -1 else 0.0
+        confidence = max(0.0, float(conf) / 100.0)
 
         if language == "zh":
             words = _segment_chinese(text)

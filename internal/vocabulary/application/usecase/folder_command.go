@@ -4,6 +4,7 @@ import (
 	"context"
 	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
+	"learning-go/internal/vocabulary/application/mapper"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 
@@ -34,7 +35,7 @@ func (useCase *FolderCommand) CreateFolder(ctx context.Context, userID string, r
 		return nil, apperr.InternalServerError("folder.save_failed", err)
 	}
 
-	return toFolderResponse(folder), nil
+	return mapper.ToFolderResponse(folder), nil
 }
 
 func (useCase *FolderCommand) UpdateFolder(ctx context.Context, id string, userID string, req vdto.UpdateFolderRequest) (*vdto.FolderResponse, error) {
@@ -51,7 +52,7 @@ func (useCase *FolderCommand) UpdateFolder(ctx context.Context, id string, userI
 		return nil, apperr.InternalServerError("folder.update_failed", err)
 	}
 
-	return toFolderResponse(folder), nil
+	return mapper.ToFolderResponse(folder), nil
 }
 
 func (useCase *FolderCommand) DeleteFolder(ctx context.Context, id string, userID string) error {

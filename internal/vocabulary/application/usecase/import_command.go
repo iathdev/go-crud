@@ -4,6 +4,7 @@ import (
 	"context"
 	apperr "learning-go/internal/shared/error"
 	vdto "learning-go/internal/vocabulary/application/dto"
+	"learning-go/internal/vocabulary/application/mapper"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
 )
@@ -49,7 +50,7 @@ func (useCase *ImportCommand) ImportVocabularies(ctx context.Context, req vdto.B
 			MeaningEN:       v.MeaningEN,
 			HSKLevel:        v.HSKLevel,
 			AudioURL:        v.AudioURL,
-			Examples:        toExampleEntities(v.Examples),
+			Examples:        mapper.ToExampleEntities(v.Examples),
 			Radicals:        v.Radicals,
 			StrokeCount:     v.StrokeCount,
 			StrokeDataURL:   v.StrokeDataURL,

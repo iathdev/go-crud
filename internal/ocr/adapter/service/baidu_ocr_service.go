@@ -18,7 +18,7 @@ import (
 	"learning-go/internal/infrastructure/circuitbreaker"
 	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
-	"learning-go/internal/vocabulary/application/port"
+	"learning-go/internal/ocr/application/port"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 	baiduGeneralURL     = "https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic"
 
 	baiduTokenCacheKey = "baidu_ocr:access_token"
-	baiduTokenTTL      = 29 * 24 * time.Hour // token valid 30 days, cache 29
+	baiduTokenTTL      = 29 * 24 * time.Hour
 )
 
 type BaiduOCRService struct {
@@ -38,13 +38,11 @@ type BaiduOCRService struct {
 	redis     *redis.Client
 }
 
-// baiduTokenResponse maps the OAuth2 token endpoint response.
 type baiduTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int    `json:"expires_in"`
 }
 
-// baiduOCRResponse maps the OCR API response.
 type baiduOCRResponse struct {
 	WordsResult []baiduWordsResult `json:"words_result"`
 	ErrorCode   int                `json:"error_code"`
@@ -58,7 +56,7 @@ type baiduWordsResult struct {
 
 type baiduCharResult struct {
 	Char        string `json:"char"`
-	Probability int    `json:"probability"` // 0-100
+	Probability int    `json:"probability"`
 }
 
 func NewBaiduOCRService(apiKey, secretKey string, breaker *circuitbreaker.Breaker, redisClient *redis.Client) port.OCRServicePort {
@@ -78,13 +76,11 @@ func (svc *BaiduOCRService) Recognize(ctx context.Context, req port.OCRRequest) 
 			return nil, err
 		}
 
-		// Choose endpoint: handwriting for zh, general for others
 		endpoint := baiduGeneralURL
 		if req.Language == "zh" {
 			endpoint = baiduHandwritingURL
 		}
 
-		// Build form body
 		imageB64 := base64.StdEncoding.EncodeToString(req.Image)
 		form := url.Values{
 			"image":                 {imageB64},
@@ -143,9 +139,8 @@ func (svc *BaiduOCRService) parseResponse(resp baiduOCRResponse, language string
 
 	for _, word := range resp.WordsResult {
 		if len(word.Chars) > 0 {
-			// Per-character mode (recognize_granularity=small)
-			for _, ch := range word.Chars {
-				text := ch.Char
+			for _, char := range word.Chars {
+				text := char.Char
 				if language == "zh" && !isCJKBaidu(text) {
 					continue
 				}
@@ -155,11 +150,10 @@ func (svc *BaiduOCRService) parseResponse(resp baiduOCRResponse, language string
 				seen[text] = struct{}{}
 				characters = append(characters, port.OCRCharacter{
 					Text:       text,
-					Confidence: float64(ch.Probability) / 100.0, // normalize 0-100 → 0.0-1.0
+					Confidence: float64(char.Probability) / 100.0,
 				})
 			}
 		} else {
-			// Fallback: per-line mode (no chars returned)
 			text := strings.TrimSpace(word.Words)
 			if text == "" {
 				continue
@@ -170,7 +164,7 @@ func (svc *BaiduOCRService) parseResponse(resp baiduOCRResponse, language string
 			seen[text] = struct{}{}
 			characters = append(characters, port.OCRCharacter{
 				Text:       text,
-				Confidence: 0.5, // unknown per-char confidence, conservative
+				Confidence: 0.5,
 			})
 		}
 	}
@@ -179,13 +173,11 @@ func (svc *BaiduOCRService) parseResponse(resp baiduOCRResponse, language string
 }
 
 func (svc *BaiduOCRService) getAccessToken(ctx context.Context) (string, error) {
-	// Check Redis cache
 	token, err := svc.redis.Get(ctx, baiduTokenCacheKey).Result()
 	if err == nil && token != "" {
 		return token, nil
 	}
 
-	// Request new token
 	tokenURL := fmt.Sprintf("%s?grant_type=client_credentials&client_id=%s&client_secret=%s",
 		baiduTokenURL, svc.apiKey, svc.secretKey)
 
@@ -215,16 +207,14 @@ func (svc *BaiduOCRService) getAccessToken(ctx context.Context) (string, error) 
 		return "", apperr.ServiceUnavailable("ocr.service_error", fmt.Errorf("empty access token"))
 	}
 
-	// Cache in Redis
 	svc.redis.Set(ctx, baiduTokenCacheKey, tokenResp.AccessToken, baiduTokenTTL)
 
 	return tokenResp.AccessToken, nil
 }
 
-// isCJKBaidu checks if the string contains a CJK Unified Ideograph.
-func isCJKBaidu(s string) bool {
-	for _, r := range s {
-		if unicode.Is(unicode.Han, r) {
+func isCJKBaidu(text string) bool {
+	for _, char := range text {
+		if unicode.Is(unicode.Han, char) {
 			return true
 		}
 	}

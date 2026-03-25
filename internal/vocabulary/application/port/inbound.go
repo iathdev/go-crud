@@ -32,8 +32,8 @@ type TopicQueryPort interface {
 
 // --- OCR Ports ---
 
-type OCRCommandPort interface {
-	ProcessOCRScan(ctx context.Context, req vdto.OCRScanRequest) (*vdto.OCRScanResponse, error)
+type OCRScanCommandPort interface {
+	ProcessOCRScan(ctx context.Context, req OCRScanInput) (*vdto.OCRScanResponse, error)
 }
 
 // --- Import Ports ---

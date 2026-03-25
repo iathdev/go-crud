@@ -6,11 +6,13 @@ import (
 
 	"go.uber.org/zap"
 
+	"learning-go/internal/ocr/application/port"
+	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
-	"learning-go/internal/vocabulary/application/port"
 )
 
-// OCRRetryDecorator wraps an OCRServicePort with retry + exponential backoff.
+const maxBackoff = 5 * time.Second
+
 type OCRRetryDecorator struct {
 	inner      port.OCRServicePort
 	maxRetries int
@@ -25,24 +27,28 @@ func NewOCRRetryDecorator(inner port.OCRServicePort, maxRetries int, baseDelay t
 	}
 }
 
-func (d *OCRRetryDecorator) Recognize(ctx context.Context, req port.OCRRequest) (*port.OCRResult, error) {
+func (decorator *OCRRetryDecorator) Recognize(ctx context.Context, req port.OCRRequest) (*port.OCRResult, error) {
 	var lastErr error
-	for attempt := range d.maxRetries {
-		result, err := d.inner.Recognize(ctx, req)
+	for attempt := range decorator.maxRetries {
+		result, err := decorator.inner.Recognize(ctx, req)
 		if err == nil {
 			return result, nil
 		}
 
 		lastErr = err
 
-		if attempt == d.maxRetries-1 {
+		if !isRetryable(err) || attempt == decorator.maxRetries-1 {
 			break
 		}
 
-		backoff := d.baseDelay * time.Duration(1<<attempt)
+		backoff := decorator.baseDelay * time.Duration(1<<attempt)
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+
 		logger.Warn(ctx, "[OCR] retrying",
 			zap.Int("attempt", attempt+1),
-			zap.Int("max", d.maxRetries),
+			zap.Int("max", decorator.maxRetries),
 			zap.Duration("backoff", backoff),
 			zap.Error(err),
 		)
@@ -54,4 +60,12 @@ func (d *OCRRetryDecorator) Recognize(ctx context.Context, req port.OCRRequest) 
 		}
 	}
 	return nil, lastErr
+}
+
+func isRetryable(err error) bool {
+	appErr, ok := apperr.IsAppError(err)
+	if !ok {
+		return true
+	}
+	return appErr.Code() == apperr.CodeServiceUnavailable || appErr.Code() == apperr.CodeInternalServerError
 }

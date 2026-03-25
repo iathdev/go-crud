@@ -6,9 +6,9 @@ import (
 	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/logger"
 	vdto "learning-go/internal/vocabulary/application/dto"
+	"learning-go/internal/vocabulary/application/mapper"
 	"learning-go/internal/vocabulary/application/port"
 	"learning-go/internal/vocabulary/domain"
-	"math"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -46,7 +46,7 @@ func (useCase *VocabularyQuery) GetVocabulary(ctx context.Context, id string) (*
 		return nil, apperr.NotFound("vocabulary.not_found")
 	}
 
-	return toVocabularyResponse(vocab), nil
+	return mapper.ToVocabularyResponse(vocab), nil
 }
 
 func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id string) (*vdto.VocabularyDetailResponse, error) {
@@ -72,7 +72,7 @@ func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id stri
 	} else {
 		topicResponses = make([]vdto.TopicResponse, 0, len(topics))
 		for _, t := range topics {
-			topicResponses = append(topicResponses, toTopicResponse(t))
+			topicResponses = append(topicResponses, mapper.ToTopicResponse(t))
 		}
 	}
 
@@ -85,12 +85,12 @@ func (useCase *VocabularyQuery) GetVocabularyDetail(ctx context.Context, id stri
 	} else {
 		gpResponses = make([]vdto.GrammarPointResponse, 0, len(grammarPoints))
 		for _, gp := range grammarPoints {
-			gpResponses = append(gpResponses, toGrammarPointResponse(gp))
+			gpResponses = append(gpResponses, mapper.ToGrammarPointResponse(gp))
 		}
 	}
 
 	return &vdto.VocabularyDetailResponse{
-		VocabularyResponse: *toVocabularyResponse(vocab),
+		VocabularyResponse: *mapper.ToVocabularyResponse(vocab),
 		Topics:             topicResponses,
 		GrammarPoints:      gpResponses,
 	}, nil
@@ -114,7 +114,7 @@ func (useCase *VocabularyQuery) ListByHSKLevel(ctx context.Context, level int, p
 		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
-	return toPaginatedResponse(vocabs, total, pagination), nil
+	return mapper.ToPaginatedResponse(vocabs, total, pagination), nil
 }
 
 func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pagination dto.PaginationRequest) (*dto.PaginatedResponse, error) {
@@ -139,7 +139,7 @@ func (useCase *VocabularyQuery) ListByTopic(ctx context.Context, slug string, pa
 		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
-	return toPaginatedResponse(vocabs, total, pagination), nil
+	return mapper.ToPaginatedResponse(vocabs, total, pagination), nil
 }
 
 func (useCase *VocabularyQuery) SearchVocabulary(ctx context.Context, query string, pagination dto.PaginationRequest) (*dto.PaginatedResponse, error) {
@@ -156,78 +156,7 @@ func (useCase *VocabularyQuery) SearchVocabulary(ctx context.Context, query stri
 		return nil, apperr.InternalServerError("vocabulary.query_failed", err)
 	}
 
-	return toPaginatedResponse(vocabs, total, pagination), nil
-}
-
-func toVocabularyResponse(v *domain.Vocabulary) *vdto.VocabularyResponse {
-	var examples []vdto.ExampleDTO
-	if len(v.Examples) > 0 {
-		examples = make([]vdto.ExampleDTO, 0, len(v.Examples))
-		for _, e := range v.Examples {
-			examples = append(examples, vdto.ExampleDTO{
-				SentenceCN: e.SentenceCN,
-				SentenceVI: e.SentenceVI,
-				AudioURL:   e.AudioURL,
-			})
-		}
-	}
-
-	return &vdto.VocabularyResponse{
-		ID:              v.ID.String(),
-		Hanzi:           v.Hanzi,
-		Pinyin:          v.Pinyin,
-		MeaningVI:       v.MeaningVI,
-		MeaningEN:       v.MeaningEN,
-		HSKLevel:        v.HSKLevel,
-		AudioURL:        v.AudioURL,
-		Examples:        examples,
-		Radicals:        v.Radicals,
-		StrokeCount:     v.StrokeCount,
-		StrokeDataURL:   v.StrokeDataURL,
-		RecognitionOnly: v.RecognitionOnly,
-		FrequencyRank:   v.FrequencyRank,
-		CreatedAt:       v.CreatedAt,
-	}
-}
-
-func toTopicResponse(t *domain.Topic) vdto.TopicResponse {
-	return vdto.TopicResponse{
-		ID:     t.ID.String(),
-		NameCN: t.NameCN,
-		NameVI: t.NameVI,
-		NameEN: t.NameEN,
-		Slug:   t.Slug,
-	}
-}
-
-func toGrammarPointResponse(gp *domain.GrammarPoint) vdto.GrammarPointResponse {
-	return vdto.GrammarPointResponse{
-		ID:            gp.ID.String(),
-		Code:          gp.Code,
-		Pattern:       gp.Pattern,
-		ExampleCN:     gp.ExampleCN,
-		ExampleVI:     gp.ExampleVI,
-		Rule:          gp.Rule,
-		CommonMistake: gp.CommonMistake,
-		HSKLevel:      gp.HSKLevel,
-	}
-}
-
-func toPaginatedResponse(vocabs []*domain.Vocabulary, total int64, pagination dto.PaginationRequest) *dto.PaginatedResponse {
-	items := make([]*vdto.VocabularyResponse, 0, len(vocabs))
-	for _, v := range vocabs {
-		items = append(items, toVocabularyResponse(v))
-	}
-	totalPages := int(math.Ceil(float64(total) / float64(pagination.PageSize)))
-	return &dto.PaginatedResponse{
-		Items: items,
-		Metadata: dto.PaginationMeta{
-			Total:      total,
-			Page:       pagination.Page,
-			PageSize:   pagination.PageSize,
-			TotalPages: totalPages,
-		},
-	}
+	return mapper.ToPaginatedResponse(vocabs, total, pagination), nil
 }
 
 func normalizePagination(p *dto.PaginationRequest) {

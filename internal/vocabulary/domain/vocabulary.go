@@ -12,7 +12,6 @@ var (
 	ErrPinyinRequired  = errors.New("pinyin is required")
 	ErrInvalidHSKLevel = errors.New("hsk level must be between 1 and 9")
 	ErrMeaningRequired = errors.New("at least one meaning (vi or en) is required")
-	ErrDuplicateHanzi  = errors.New("vocabulary with this hanzi already exists")
 )
 
 type Example struct {

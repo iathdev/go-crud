@@ -3,15 +3,17 @@ package handler
 import (
 	"fmt"
 	"io"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
 	"learning-go/internal/shared/dto"
 	"learning-go/internal/shared/response"
 	vdto "learning-go/internal/vocabulary/application/dto"
 	"learning-go/internal/vocabulary/application/port"
-	"net/http"
-	"strconv"
-	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 type VocabularyHandler struct {
@@ -20,8 +22,8 @@ type VocabularyHandler struct {
 	folderCmd port.FolderCommandPort
 	folderQry port.FolderQueryPort
 	topicQry  port.TopicQueryPort
-	ocrCmd    port.OCRCommandPort
 	importCmd port.ImportCommandPort
+	ocrCmd    port.OCRScannerPort
 }
 
 func NewVocabularyHandler(
@@ -30,8 +32,8 @@ func NewVocabularyHandler(
 	folderCmd port.FolderCommandPort,
 	folderQry port.FolderQueryPort,
 	topicQry port.TopicQueryPort,
-	ocrCmd port.OCRCommandPort,
 	importCmd port.ImportCommandPort,
+	ocrCmd port.OCRScannerPort,
 ) *VocabularyHandler {
 	return &VocabularyHandler{
 		vocabCmd:  vocabCmd,
@@ -39,8 +41,8 @@ func NewVocabularyHandler(
 		folderCmd: folderCmd,
 		folderQry: folderQry,
 		topicQry:  topicQry,
-		ocrCmd:    ocrCmd,
 		importCmd: importCmd,
+		ocrCmd:    ocrCmd,
 	}
 }
 
@@ -178,18 +180,18 @@ func (handler *VocabularyHandler) ListTopics(c *gin.Context) {
 
 // --- OCR endpoints ---
 
-func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
+func (handler *VocabularyHandler) ProcessOCRScan(ctx *gin.Context) {
 	const maxImageSize = 5 << 20 // 5MB
 
 	var httpReq vdto.OCRScanHTTPRequest
-	if err := c.ShouldBindJSON(&httpReq); err != nil {
-		response.ValidationError(c, err)
+	if err := ctx.ShouldBindJSON(&httpReq); err != nil {
+		response.ValidationError(ctx, err)
 		return
 	}
 
 	imageBytes, err := downloadImage(httpReq.ImageURL, maxImageSize)
 	if err != nil {
-		response.BadRequest(c, "ocr.image_download_failed")
+		response.BadRequest(ctx, "ocr.image_download_failed")
 		return
 	}
 
@@ -202,18 +204,20 @@ func (handler *VocabularyHandler) ProcessOCRScan(c *gin.Context) {
 		language = "zh"
 	}
 
-	req := vdto.OCRScanRequest{
+	req := port.OCRScanInput{
 		Image:    imageBytes,
 		Type:     ocrType,
 		Language: language,
+		Engine:   httpReq.Engine,
 	}
 
-	res, err := handler.ocrCmd.ProcessOCRScan(c.Request.Context(), req)
+	result, err := handler.ocrCmd.ProcessScan(ctx.Request.Context(), req)
 	if err != nil {
-		response.HandleError(c, err)
+		response.HandleError(ctx, err)
 		return
 	}
-	response.Success(c, http.StatusOK, res)
+
+	response.Success(ctx, http.StatusOK, result)
 }
 
 func downloadImage(imageURL string, maxSize int64) ([]byte, error) {
@@ -228,17 +232,17 @@ func downloadImage(imageURL string, maxSize int64) ([]byte, error) {
 		return nil, fmt.Errorf("download image: status %d", resp.StatusCode)
 	}
 
-	contentType := resp.Header.Get("Content-Type")
-	if contentType != "image/jpeg" && contentType != "image/png" {
-		return nil, fmt.Errorf("unsupported content type: %s", contentType)
-	}
-
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("read image: %w", err)
 	}
 	if int64(len(data)) > maxSize {
 		return nil, fmt.Errorf("image exceeds %d bytes", maxSize)
+	}
+
+	contentType := http.DetectContentType(data)
+	if !strings.HasPrefix(contentType, "image/") {
+		return nil, fmt.Errorf("not an image: detected %s", contentType)
 	}
 
 	return data, nil
