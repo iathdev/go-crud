@@ -35,7 +35,7 @@ func NewModule(db *gorm.DB, redisClient *redis.Client, cfg *config.Config) *Modu
 	}, nil)
 	prepUserService := service.NewPrepUserService(
 		service.PrepAuthConfig{
-			BaseDomain:        cfg.PrepAuthServiceDomain,
+			BaseDomain:        cfg.PrepAPIDomain,
 			AuthTokenEndpoint: cfg.GetPrepAuthTokenEndpoint(),
 			AuthMeEndpoint:    cfg.GetPrepMeEndpoint(),
 			Timeout:           cfg.GetPrepHTTPClientTimeout(),
