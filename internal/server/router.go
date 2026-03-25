@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"gorm.io/gorm"
 )
@@ -17,6 +18,7 @@ func NewRouter(
 	authModule *auth.Module,
 	vocabularyModule *vocabulary.Module,
 	db *gorm.DB,
+	redisClient *redis.Client,
 	cfg *config.Config,
 ) *gin.Engine {
 	if cfg.GinMode != "" {
@@ -49,11 +51,11 @@ func NewRouter(
 
 	// Public routes with rate limiting
 	public := r.Group("/")
-	public.Use(middleware.RateLimitMiddleware(cfg.GetRateLimitRPS(), cfg.GetRateLimitBurst()))
+	public.Use(middleware.GlobalRateLimitMiddleware(redisClient, cfg.GetRateLimitRPS(), cfg.GetRateLimitBurst()))
 
 	// Protected routes
-	v1 := r.Group("/api/v1")
-	v1.Use(middleware.AuthMiddleware(authModule.PrepUserService, authModule.UserRepo))
+	v1 := r.Group("/api")
+	v1.Use(middleware.AuthMiddleware(authModule.PrepUserService, authModule.AuthUseCase))
 
 	// Register modules
 	authModule.RegisterRoutes(public, v1)

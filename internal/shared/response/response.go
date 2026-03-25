@@ -3,7 +3,6 @@ package response
 import (
 	"errors"
 	"net/http"
-
 	apperr "learning-go/internal/shared/error"
 	"learning-go/internal/shared/i18n"
 
@@ -58,22 +57,18 @@ func Error(c *gin.Context, status int, message string, err ...interface{}) {
 
 	var errPayload interface{}
 	if len(err) > 0 {
-		if len(err) == 1 {
-			errPayload = err[0]
-		} else {
-			payload := make([]interface{}, 0, len(err))
-			for _, e := range err {
-				if v, ok := e.(error); ok {
-					payload = append(payload, v.Error())
-				} else {
-					payload = append(payload, e)
-				}
+		converted := make([]interface{}, 0, len(err))
+		for _, e := range err {
+			if v, ok := e.(error); ok {
+				converted = append(converted, v.Error())
+			} else {
+				converted = append(converted, e)
 			}
-			errPayload = payload
 		}
-
-		if v, ok := errPayload.(error); ok {
-			errPayload = v.Error()
+		if len(converted) == 1 {
+			errPayload = converted[0]
+		} else {
+			errPayload = converted
 		}
 	}
 
@@ -100,7 +95,7 @@ func ValidationError(c *gin.Context, err error) {
 	if errors.As(err, &ve) {
 		fields := make(map[string]string, len(ve))
 		for _, fe := range ve {
-			fields[toSnakeCase(fe.Field())] = fe.Tag()
+			fields[fe.Field()] = fe.Tag()
 		}
 		UnprocessableEntity(c, "common.validation_failed", fields)
 		return
@@ -108,21 +103,6 @@ func ValidationError(c *gin.Context, err error) {
 	UnprocessableEntity(c, "")
 }
 
-// toSnakeCase converts PascalCase field name to snake_case to match JSON tags.
-func toSnakeCase(s string) string {
-	var result []byte
-	for i, c := range s {
-		if c >= 'A' && c <= 'Z' {
-			if i > 0 {
-				result = append(result, '_')
-			}
-			result = append(result, byte(c)+32)
-		} else {
-			result = append(result, byte(c))
-		}
-	}
-	return string(result)
-}
 
 func Unauthorized(c *gin.Context, message string, err ...interface{}) {
 	msg := message
@@ -203,6 +183,18 @@ func HandleError(c *gin.Context, err error) {
 	if !ok {
 		status = http.StatusInternalServerError
 	}
+
+	if data := domErr.Data(); data != nil {
+		lang := getLang(c)
+		msg := i18n.TranslateText(lang, domErr.Message())
+		c.JSON(status, APIResponse{
+			Success: false,
+			Message: msg,
+			Error:   data,
+		})
+		return
+	}
+
 	Error(c, status, domErr.Message())
 }
 

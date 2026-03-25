@@ -62,13 +62,28 @@ func RequestLoggerMiddleware() gin.HandlerFunc {
 			zap.Int("status", status),
 			zap.Duration("latency", latency),
 			zap.String("client_ip", common.ResolveClientIP(c.Request)),
+			zap.String("user_agent", c.Request.UserAgent()),
+			zap.String("protocol", c.Request.Proto),
+			zap.Int("response_size", c.Writer.Size()),
+		}
+
+		if userID, exists := c.Get("user_id"); exists {
+			fields = append(fields, zap.String("user_id", userID.(string)))
 		}
 
 		if requestBody != "" {
 			fields = append(fields, zap.String("body", requestBody))
 		}
 
-		logger.WithContext(ctx).Info("[SERVER] http_request", fields...)
+		log := logger.WithContext(ctx)
+		switch {
+		case status >= 500:
+			log.Error("[SERVER] http_request", fields...)
+		case status >= 400:
+			log.Warn("[SERVER] http_request", fields...)
+		default:
+			log.Info("[SERVER] http_request", fields...)
+		}
 	}
 }
 

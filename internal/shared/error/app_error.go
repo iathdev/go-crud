@@ -21,15 +21,22 @@ type AppError struct {
 	code    Code
 	message string
 	cause   error
+	data    map[string]any
 }
 
 func (appErr *AppError) Error() string {
 	return string(appErr.code) + ": " + appErr.message
 }
 
-func (appErr *AppError) Code() Code      { return appErr.code }
-func (appErr *AppError) Message() string { return appErr.message }
-func (appErr *AppError) Unwrap() error   { return appErr.cause }
+func (appErr *AppError) Code() Code           { return appErr.code }
+func (appErr *AppError) Message() string      { return appErr.message }
+func (appErr *AppError) Unwrap() error        { return appErr.cause }
+func (appErr *AppError) Data() map[string]any { return appErr.data }
+
+func (appErr *AppError) WithData(data map[string]any) *AppError {
+	appErr.data = data
+	return appErr
+}
 
 func (appErr *AppError) Is(target error) bool {
 	var t *AppError
