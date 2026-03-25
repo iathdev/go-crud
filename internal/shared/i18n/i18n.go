@@ -2,11 +2,15 @@ package i18n
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
+	"learning-go/internal/shared/logger"
 )
 
 const DefaultLang = "en"
@@ -103,17 +107,22 @@ func ensureLoaded() {
 func loadLangFiles(baseDir string, lang string) {
 	langDir := filepath.Join(baseDir, lang)
 	entries, err := os.ReadDir(langDir)
-	if err == nil {
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			if !strings.HasSuffix(strings.ToLower(e.Name()), ".json") {
-				continue
-			}
-			filePath := filepath.Join(langDir, e.Name())
-			loadFile(lang, filePath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			logger.Warn("[I18N] failed to read language directory",
+				zap.String("dir", langDir), zap.Error(err))
 		}
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(strings.ToLower(e.Name()), ".json") {
+			continue
+		}
+		filePath := filepath.Join(langDir, e.Name())
+		loadFile(lang, filePath)
 	}
 
 	legacyFile := filepath.Join(baseDir, lang+".json")
@@ -123,11 +132,17 @@ func loadLangFiles(baseDir string, lang string) {
 func loadFile(lang string, filePath string) {
 	b, err := os.ReadFile(filePath)
 	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			logger.Warn("[I18N] failed to read translation file",
+				zap.String("file", filePath), zap.Error(err))
+		}
 		return
 	}
 
 	var m map[string]string
 	if err := json.Unmarshal(b, &m); err != nil {
+		logger.Warn("[I18N] failed to parse translation file",
+			zap.String("file", filePath), zap.Error(err))
 		return
 	}
 
