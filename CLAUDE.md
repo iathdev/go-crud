@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Go REST API using **Modular Monolith** with **Hexagonal Architecture (Ports and Adapters)** per module. Built with Gin, GORM, and PostgreSQL. Module name: `learning-go`. Requires **Go 1.25+**.
 
+Deployment target: **horizontal scaling** with Kubernetes replicas and load balancer. Do not assume single instance — stateful in-memory components (rate limiter, cache) must be evaluated for multi-instance correctness.
+
 ## Commands
 
 ```bash
@@ -25,13 +27,11 @@ Requires a `.env` file (copy from `.env.example`). The Makefile reads `.env` for
 
 ## Architecture
 
-**Modular Monolith** — each subdomain is a self-contained module with its own Hexagonal Architecture. Modules communicate through exported interfaces, never by importing each other's internals.
-
 **Request flow:** HTTP Router -> Module.RegisterRoutes() -> Handler -> Input Port (interface) -> Use Case -> Output Port (interface) -> Repository -> Database
 
 ### Module Structure
 
-Each module (`auth/`, `vocabulary/`) follows the same internal layout:
+Each module follows the same internal layout:
 
 ```
 internal/<module>/
@@ -48,59 +48,27 @@ internal/<module>/
 └── module.go            # Module wiring + RegisterRoutes(public, protected)
 ```
 
-### Layer Map
+### Modules
 
-- **`cmd/api/main.go`** — Entry point, calls DI container
-- **`internal/auth/`** — Auth subdomain module (SSO login, refresh, logout, profile, onboarding)
-  - `domain/` — User value object (from Prep), UserProfile entity
-  - `application/port/` — AuthUseCasePort, UserProfileRepositoryPort, PrepUserServicePort, TokenServicePort, RefreshTokenStorePort
-  - `application/usecase/` — SSO login, token pair generation, profile management
-  - `adapter/handler/` — HTTP handlers for auth endpoints
-  - `adapter/repository/` — Postgres user profile repo, Redis refresh token store
-  - `adapter/security/` — JWT token service implementation
-  - `adapter/external/` — Prep User Service HTTP adapter + dev stub
-  - `module.go` — Wires all auth internals, exposes RegisterRoutes
-- **`internal/vocabulary/`** — Vocabulary subdomain module (CRUD vocabularies, folders, topics, grammar points, OCR, import)
-  - `domain/` — Vocabulary entity (with Example value object), Folder entity, Topic entity, GrammarPoint entity
-  - `application/port/` — VocabularyCommandPort, VocabularyQueryPort, FolderCommandPort, FolderQueryPort, TopicQueryPort, OCRCommandPort, ImportCommandPort, VocabularyRepositoryPort, FolderRepositoryPort, TopicRepositoryPort, GrammarPointRepositoryPort
-  - `application/usecase/` — Vocabulary CRUD, Folder CRUD, Topic query, OCR scan, bulk import
-  - `adapter/handler/` — HTTP handlers for vocabulary, folder, topic, OCR, import endpoints
-  - `adapter/repository/` — Postgres vocabulary repo, folder repo, topic repo, grammar point repo
-  - `module.go` — Wires all vocabulary internals, exposes RegisterRoutes
-- **`internal/shared/`** — Shared kernel
-  - `error/` — AppError with typed codes (BAD_REQUEST, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT, UNPROCESSABLE_ENTITY, INTERNAL_SERVER_ERROR, SERVICE_UNAVAILABLE)
-  - `logger/` — Logger interface and global logger
-  - `ctxlog/` — Context-based field storage for structured logging
-  - `i18n/` — Internationalization engine (en, vi, zh, th, id)
-  - `middleware/` — HTTP middleware (auth JWT, CORS, rate limiting, i18n, recovery, security headers, request ID, logging)
-  - `response/` — Unified API response formatting with i18n translation
-  - `dto/` — Shared DTOs (PaginationRequest, PaginationMeta, PaginatedResponse)
-- **`internal/server/`** — HTTP server and router
-  - `router.go` — Registers global middleware, creates route groups, calls module.RegisterRoutes()
-  - `server.go` — HTTP server wrapper with timeouts
-- **`internal/infrastructure/`** — Cross-cutting infrastructure
-  - `di/` — Manual dependency injection (creates modules, wires persistence & observability)
-  - `config/` — Viper-based config from `.env`
-  - `database/` — Postgres connection setup
-  - `circuitbreaker/` — gobreaker v2 wrapper with registry pattern
-  - `logging/` — Zap logger factory, multi-logger, async logger
-  - `redis/` — Redis client factory
-  - `sentry/` — Sentry error tracking
-  - `tracing/` — OpenTelemetry setup
+- **`internal/auth/`** — Auth subdomain (SSO login via Prep platform, refresh, logout, profile, onboarding). Uses Prep User Service for SSO (`adapter/external/`).
+- **`internal/vocabulary/`** — Vocabulary subdomain (CRUD vocabularies, folders, topics, grammar points). Uses CQRS pattern (separate Command/Query ports and use cases).
+- **`internal/ocr/`** — OCR subdomain (stub — not yet implemented).
+- **`internal/shared/`** — Shared kernel: AppError, logger, i18n (en/vi/zh/th/id), middleware, unified response formatting, shared DTOs.
+- **`internal/server/`** — HTTP server, router, middleware chain registration.
+- **`internal/infrastructure/`** — DI container, config (Viper), database, Redis, circuit breaker (gobreaker), logging (Zap), Sentry, OpenTelemetry tracing.
 
 ### Key Patterns
 
-- **Module boundary**: Each module is self-contained. Module A must NOT import internal packages of Module B. Cross-module communication goes through exported ports/interfaces.
-- **Module registration**: Each module exposes `NewModule(deps...) *Module` and `RegisterRoutes(public, protected *gin.RouterGroup)`. The DI container creates modules; the router calls RegisterRoutes.
-- **Domain entities vs DB models**: Domain entities live in `<module>/domain/`, DB models in `<module>/adapter/repository/`. Repositories handle mapping between them.
-- **CQRS**: Vocabulary and learning modules split use cases into `*Command` and `*Query` types with corresponding port interfaces. Follow this pattern for new modules.
-- **Circuit breaker**: Infrastructure-level gobreaker v2 wrapper lives in `infrastructure/circuitbreaker/` with a `BreakerRegistry` pattern. The breaker converts `gobreaker.ErrOpenState`/`ErrTooManyRequests` into `apperr.ServiceUnavailable()`. Only `nil` and `ErrNotFound` count as success. Settings configurable via `CB_*` env vars. Currently not wired to repository adapters but available for use (e.g., wrapping external service calls).
-- **Error handling**: `AppError` in `shared/error/` carries a typed `Code`. `response.HandleError(c, err)` is the shared function that maps `AppError.Code()` to HTTP status codes. Handlers call it directly — no per-module wrappers. All error messages are i18n-translated at the response layer.
-- **i18n**: Language detected from `lang` query param > `X-Lang` header > `Accept-Language` header. Translation files are JSON in `resources/i18n/<lang>/<domain>.json`. Falls back to English, then to the raw key.
+- **Module boundary**: Module A must NOT import internal packages of Module B. Cross-module communication goes through exported ports/interfaces.
+- **Module registration**: Each module exposes `NewModule(deps...) *Module` and `RegisterRoutes(public, protected *gin.RouterGroup)`. DI container creates modules; router calls RegisterRoutes.
+- **Domain entities vs DB models**: Domain entities in `<module>/domain/`, DB models in `<module>/adapter/repository/`. Repositories map between them via `toEntity()`/`fromEntity()`.
+- **CQRS**: Vocabulary module splits use cases into `*Command` and `*Query` types with corresponding port interfaces. Follow this pattern for new modules.
+- **Circuit breaker**: gobreaker v2 in `infrastructure/circuitbreaker/` with `BreakerRegistry`. In-memory per-process (not distributed). Converts `ErrOpenState`/`ErrTooManyRequests` to `apperr.ServiceUnavailable()`. Only `nil` and `ErrNotFound` count as success. Configurable via `CB_*` env vars.
+- **Error handling**: `AppError` in `shared/error/` carries a typed `Code`. `response.HandleError(c, err)` maps code to HTTP status. All error messages are i18n keys translated at response layer.
+- **i18n**: Language detected from `lang` query param > `X-Lang` header > `Accept-Language` header. Translation files in `resources/i18n/<lang>/<domain>.json`. Falls back to English, then raw key.
 - **Middleware chain**: SecurityHeaders -> CORS -> RequestID -> OTEL -> RequestLogger -> Language -> Recovery. Rate limiting on public routes. JWT auth on `/api/*` routes.
-- **Config**: All config via environment variables loaded from `.env` using Viper.
-- **DI**: Manual constructor injection in `infrastructure/di/`. No framework. Creates modules with their dependencies and returns a cleanup function for graceful shutdown.
-- **Testing**: Unit tests are colocated with source files (`*_test.go`). Uses table-driven tests with `t.Run()` subtests. No mock framework — tests focus on domain logic.
+- **DI**: Manual constructor injection in `infrastructure/di/`. No framework. Returns cleanup function for graceful shutdown.
+- **Testing**: Colocated `*_test.go`. Table-driven tests with `t.Run()`. No mock framework — tests focus on domain logic.
 - **Migrations**: SQL files in `migrations/` named `NNNNNN_description.{up,down}.sql` (6-digit zero-padded prefix).
 
 ### Adding a New Module
@@ -113,14 +81,14 @@ internal/<module>/
 ## API Routes
 
 - `POST /register`, `POST /login`, `POST /refresh` — Public (rate-limited: 5 req/sec, burst 10)
-- `/api/*` — Protected by JWT auth middleware (vocabulary CRUD, folders, learning, review, logout)
+- `/api/*` — Protected by JWT auth middleware (vocabulary CRUD, folders, logout)
 - `GET /health` — Health check
 
 ## Documentation
 
-Additional design docs in `docs/`: `architecture.md`, `tech_stack.md`, `requirement.md`.
+Design docs in `.claude/docs/`
 
 ## Rules
 
-- **Coding Style**: See [`docs/coding_style.md`](.claude/rules/coding_style.md)
-- **Planning Rules**: See [`docs/planning_rules.md`](.claude/rules/planning_rules.md)
+- **Coding Style**: See [`.claude/rules/coding_style.md`](.claude/rules/coding_style.md)
+- **Planning Rules**: See [`.claude/rules/planning_rules.md`](.claude/rules/planning_rules.md)

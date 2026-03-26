@@ -1,6 +1,4 @@
-# Kiến trúc Dự án (Modular Monolith + Hexagonal Architecture)
-
-Dự án này được xây dựng dựa trên kiến trúc **Modular Monolith** với **Hexagonal Architecture** (Ports and Adapters) cho từng module. Mục tiêu chính là tách biệt phần **Business Logic** (Core) khỏi các yếu tố bên ngoài (Frameworks, Database, UI, External APIs), đồng thời giữ mỗi subdomain độc lập trong cùng một binary.
+# Kiến trúc Dự án
 
 ## 1. Cấu trúc Thư mục
 
@@ -138,7 +136,13 @@ Cung cấp các công cụ và cấu hình để chạy ứng dụng.
 - **Database**: GORM postgres connection + custom GORM logger (slow query detection >200ms).
 - **DI**: `container.go` → `initPersistence()` → module factories. Manual constructor injection.
 - **Observability**: Zap structured logging + OTEL tracing + Sentry error tracking.
-- **Resilience**: Circuit breaker (gobreaker) registry cho persistence layer.
+- **Resilience**: Circuit breaker (gobreaker) registry cho persistence layer. gobreaker chạy in-memory per-process, không hỗ trợ distributed — chấp nhận được vì mỗi instance tự protect.
+
+### Deployment & Scaling
+- Dự án sẽ **horizontal scaling** với **Kubernetes replicas** và **load balancer**.
+- **Rate limiter**: Cần chuyển sang **distributed (Redis-backed)** để đảm bảo rate limit chính xác across instances. In-memory rate limit sẽ bị bypass khi có N instances (mỗi instance cho phép riêng → user thực tế được N × limit).
+- **Circuit breaker**: In-memory per-instance (gobreaker) vẫn ok — mỗi instance tự bảo vệ, không cần share state.
+- **Stateful components**: Khi thêm component in-memory mới, luôn cân nhắc multi-instance scenario.
 
 ### Shared Kernel (`internal/shared/`)
 Code dùng chung giữa các modules.
