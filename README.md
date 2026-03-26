@@ -1,13 +1,11 @@
-# Go Modular Monolith — Chinese Vocabulary Learning API
-
-Dự án **REST API** với **Go (Golang)** theo kiến trúc **Modular Monolith** + **Hexagonal Architecture** cho từng module.
+# Chinese Vocabulary Learning API
 
 ## Tài liệu chi tiết
 
 Vui lòng xem chi tiết tại thư mục `docs/`:
 
-- [Kiến trúc Dự án và Vòng đời Request](.claude/docs/architecture.md)
-- [Danh sách Công nghệ và Thư viện](.claude/docs/tech_stack.md)
+- [Kiến trúc Dự án và Vòng đời Request](.claude/docs/00-system-design/backend/architecture.md)
+- [Danh sách Công nghệ và Thư viện](.claude/docs/00-system-design/backend/tech_stack.md)
 
 ## Cài đặt và Chạy
 

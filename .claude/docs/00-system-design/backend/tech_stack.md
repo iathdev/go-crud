@@ -65,7 +65,6 @@ Tài liệu này liệt kê các công nghệ, công cụ và thư viện quan t
 
 ## 3. Kiến trúc (Architecture)
 
-- **Modular Monolith + Hexagonal Architecture (Ports and Adapters)**: Tách business logic khỏi framework/infrastructure.
 - **CQRS**: Command/Query split cho Vocabulary và Learning modules.
 - **Ports split**: `inbound.go` (driving — handlers gọi usecases) và `outbound.go` (driven — usecases gọi repositories/services).
 - **Domain Services**: Business logic không thuộc entity cụ thể (SM-2 scoring algorithm).
