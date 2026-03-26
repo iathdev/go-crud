@@ -63,16 +63,16 @@ type OCRScanInput struct {
 }
 
 type OCRScanOutput struct {
-	Items         []OCRCharacterOutput
-	LowConfidence []OCRCharacterOutput
-	EngineUsed    string
-	TotalDetected int
-	ProcessingMs  int64
+	Items         []OCRCharacterOutput `json:"items"`
+	LowConfidence []OCRCharacterOutput `json:"low_confidence"`
+	EngineUsed    string               `json:"engine_used"`
+	TotalDetected int                  `json:"total_detected"`
+	ProcessingMs  int64                `json:"processing_ms"`
 }
 
 type OCRCharacterOutput struct {
-	Text          string
-	Pronunciation string
-	Confidence    float64
-	Candidates    []string
+	Text          string   `json:"text"`
+	Pronunciation string   `json:"pronunciation,omitempty"`
+	Confidence    float64  `json:"confidence"`
+	Candidates    []string `json:"candidates,omitempty"`
 }
